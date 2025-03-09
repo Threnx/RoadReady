@@ -1,0 +1,44 @@
+nav ul {
+    list-style-type: none;
+    padding: 0;
+  }
+  
+  nav ul li {
+    display: inline-block;
+    margin-right: 15px;
+  }
+  
+  nav ul li a {
+    text-decoration: none;
+    color: #333;
+    font-weight: bold;
+  }
+  
+  nav ul li a:hover {
+    text-decoration: underline;
+  }
+  /* FILE: public/style.css (or any main CSS file you have) */
+
+/* A class that draws a circle around the day cell */
+.fc-day-has-events {
+  border: 2px solid #28a745; /* green border */
+  border-radius: 50%;
+  padding: 4px;
+}
+
+/* If you want a different color for holidays, you can define another class: */
+.fc-day-holiday {
+  border: 2px solid #ffc107; /* yellow */
+  border-radius: 50%;
+  padding: 4px;
+}
+.fc-day-has-events {
+  border: 2px solid #28a745; /* green */
+  border-radius: 50%;
+  padding: 4px;
+}
+.fc-day-holiday {
+  border: 2px solid #ffc107; /* yellow */
+  border-radius: 50%;
+  padding: 4px;
+}

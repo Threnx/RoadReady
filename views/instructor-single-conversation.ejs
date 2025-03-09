@@ -1,0 +1,19 @@
+<!-- FILE: views/instructor-single-conversation.ejs -->
+<!-- Only the unique content for "Conversation with Student". -->
+
+<h1>Conversation with Student #<%= studentId %></h1>
+
+<ul>
+  <% messages.forEach(msg => { %>
+    <li style="margin-bottom: 1em;">
+      <strong><%= msg.Sender.name %> (<%= msg.Sender.role %>):</strong> <%= msg.content %><br>
+      <small><%= msg.createdAt.toLocaleString() %></small>
+    </li>
+  <% }) %>
+</ul>
+
+<form action="/instructor/conversations/<%= studentId %>/reply" method="POST">
+  <label for="content">Reply:</label><br>
+  <input type="text" name="content" placeholder="Your reply here..." style="width: 60%;">
+  <button type="submit">Send</button>
+</form>

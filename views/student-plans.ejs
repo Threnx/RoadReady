@@ -1,0 +1,19 @@
+<!-- FILE: views/student-plans.ejs -->
+<!-- Hypothetical unique content for "My Lesson Plans". 
+     (If you actually intended the conversation snippet, rename or adapt it.) -->
+
+     <h1>My Lesson Plans</h1>
+     <% if (plans && plans.length > 0) { %>
+       <ul>
+         <% plans.forEach(plan => { %>
+           <li>
+             <strong><%= plan.title %></strong><br>
+             Content: <%= plan.content || 'No content' %><br>
+             Assigned by instructor: <%= plan.Instructor.name %> (#<%= plan.Instructor.id %>)
+           </li>
+         <% }) %>
+       </ul>
+     <% } else { %>
+       <p>No lesson plans yet.</p>
+     <% } %>
+     

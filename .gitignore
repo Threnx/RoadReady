@@ -1,0 +1,12 @@
+# Node.js modules
+node_modules/
+
+# Environment variables
+.env
+
+# Logs
+*.log
+
+# OS-specific files
+.DS_Store  # macOS
+Thumbs.db  # Windows

@@ -1,0 +1,35 @@
+<!-- FILE: views/lessonplans.ejs -->
+<!-- No <html>, <head>, <body>, or nav includes here. Only unique content. -->
+
+  <h1>Your Lesson Plans</h1>
+
+  <!-- A simple form to create a new plan -->
+  <form action="/instructor/plans/create" method="POST">
+    <h2>Create a New Plan</h2>
+    <label for="studentId">Student ID:</label>
+    <input type="number" name="studentId" required>
+    
+    <label for="title">Title:</label>
+    <input type="text" name="title" required>
+    
+    <label for="content">Content:</label>
+    <textarea name="content"></textarea>
+    
+    <button type="submit">Create</button>
+  </form>
+  
+  <h2>Existing Plans</h2>
+  <ul>
+    <% if (plans && plans.length > 0) { %>
+      <% plans.forEach(plan => { %>
+        <li>
+          <strong><%= plan.title %></strong><br>
+          Content: <%= plan.content || 'No content' %><br>
+          For student: <%= plan.Student.name %> (#<%= plan.Student.id %>)
+        </li>
+      <% }) %>
+    <% } else { %>
+      <li>No plans yet.</li>
+    <% } %>
+  </ul>
+  

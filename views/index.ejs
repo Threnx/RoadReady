@@ -1,0 +1,71 @@
+<!-- FILE: views/index.ejs -->
+
+<!-- Optional hero/jumbotron -->
+<div class="p-5 mb-4 bg-light rounded-3">
+  <div class="container py-5">
+    <h1 class="display-5 fw-bold">Welcome to the Driving App</h1>
+    <p class="col-md-8 fs-4">
+      Your one-stop solution for finding the perfect instructor, scheduling lessons,
+      and tracking your progress. Let's get started!
+    </p>
+    <a href="/register" class="btn btn-primary btn-lg">Get Started</a>
+  </div>
+</div>
+
+<!-- Optional features/sections -->
+<div class="container mt-5">
+  <h2 class="mb-4">Features</h2>
+  <div class="row g-4">
+    <!-- Card 1: Find Instructors -->
+    <div class="col-md-4">
+      <div class="card h-100 shadow-sm">
+        <img src="/images/find_instructor.jpg" class="card-img-top" alt="Find Instructor" />
+        <div class="card-body">
+          <h5 class="card-title">Find Instructors</h5>
+          <p class="card-text">
+            Browse a wide selection of instructors, compare prices, and read reviews to find
+            the perfect match for your driving journey.
+          </p>
+          <a href="/instructors" class="btn btn-primary">Browse Instructors</a>
+        </div>
+      </div>
+    </div>
+    <!-- Card 2: Track Lessons -->
+    <div class="col-md-4">
+      <div class="card h-100 shadow-sm">
+        <img src="/images/track_lessons.jpg" class="card-img-top" alt="Track Lessons" />
+        <div class="card-body">
+          <h5 class="card-title">Track Your Lessons</h5>
+          <p class="card-text">
+            Schedule lessons, see upcoming appointments, and keep notes on your progress—all in one place.
+          </p>
+          <a href="/student" class="btn btn-primary">View Dashboard</a>
+        </div>
+      </div>
+    </div>
+    <!-- Card 3: Secure Payments -->
+    <div class="col-md-4">
+      <div class="card h-100 shadow-sm">
+        <img src="/images/secure_payments.jpg" class="card-img-top" alt="Secure Payments" />
+        <div class="card-body">
+          <h5 class="card-title">Secure Payments</h5>
+          <p class="card-text">
+            Pay for lessons safely and easily. Monitor your balance, outstanding payments, and payment history.
+          </p>
+          <a href="/student" class="btn btn-primary">Check Balances</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Quick Testing Links (Optional) -->
+<div class="container mt-5">
+  <h2 class="mb-3">Quick Testing</h2>
+  <p>Use these links to log in as a test user:</p>
+  <ul>
+    <li><a href="/test-login/instructor">Log in as Test Instructor</a></li>
+    <li><a href="/test-login/student">Log in as Test Student</a></li>
+    <li><a href="/test-login/admin">Log in as Test Admin</a></li>
+  </ul>
+</div>

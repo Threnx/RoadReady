@@ -1,0 +1,25 @@
+<!-- FILE: views/student-single-conversation.ejs -->
+<!-- No <html>, <head>, <body>, or nav. Only unique content. -->
+
+  <h1>Conversation with Instructor #<%= instructorId %></h1>
+
+  <ul>
+    <% messages.forEach(msg => { %>
+      <li style="margin-bottom: 1em;">
+        <strong><%= msg.Sender.name %> (<%= msg.Sender.role %>):</strong> <%= msg.content %><br>
+        <small><%= msg.createdAt.toLocaleString() %></small>
+      </li>
+    <% }) %>
+  </ul>
+  
+  <% if (hasInstructorReply) { %>
+    <p>You can now officially request to join this instructor's roster:</p>
+    <form action="/student/request-instructor/<%= instructorId %>" method="POST">
+      <label for="message">Optional message:</label>
+      <input type="text" name="message" placeholder="Hi, I'd like to join your roster...">
+      <button type="submit">Request to Join Roster</button>
+    </form>
+  <% } else { %>
+    <p>Once the instructor replies at least once, you'll see a button to join their roster.</p>
+  <% } %>
+  

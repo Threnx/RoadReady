@@ -1,0 +1,39 @@
+<!-- FILE: views/instructor-roster.ejs -->
+<!-- Only the unique content for "Instructor Roster". -->
+
+<h1>Your Roster</h1>
+
+<h2>Pending Requests</h2>
+<ul>
+  <% if (pending && pending.length > 0) { %>
+    <% pending.forEach(item => { %>
+      <li>
+        Student: <%= item.Student.name %> (#<%= item.Student.id %>)<br>
+        Message: <%= item.message || 'No message' %><br>
+        <form action="/instructor/roster/<%= item.id %>/accept" method="POST" style="display:inline;">
+          <button type="submit">Accept</button>
+        </form>
+        <form action="/instructor/roster/<%= item.id %>/decline" method="POST" style="display:inline;">
+          <input type="text" name="message" placeholder="Reason (optional)">
+          <button type="submit">Decline</button>
+        </form>
+      </li>
+    <% }) %>
+  <% } else { %>
+    <li>No pending requests.</li>
+  <% } %>
+</ul>
+
+<h2>Accepted Students</h2>
+<ul>
+  <% if (accepted && accepted.length > 0) { %>
+    <% accepted.forEach(item => { %>
+      <li>
+        Student: <%= item.Student.name %> (#<%= item.Student.id %>)
+        <!-- Maybe link to schedule lessons or create plan for them -->
+      </li>
+    <% }) %>
+  <% } else { %>
+    <li>No accepted students yet.</li>
+  <% } %>
+</ul>

@@ -1,0 +1,112 @@
+<!-- FILE: views/instructor-calendar.ejs -->
+<h1>Instructor Calendar</h1>
+
+<!-- FullCalendar CSS/JS (via CDN) -->
+<link href="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.css" rel="stylesheet"/>
+<script src="https://cdn.jsdelivr.net/npm/fullcalendar@5.11.3/main.min.js"></script>
+
+<!-- We'll rely on style.css for circle styling. -->
+
+<div id="calendar"></div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    const calendarEl = document.getElementById('calendar');
+
+    const calendar = new FullCalendar.Calendar(calendarEl, {
+      initialView: 'dayGridMonth',
+      headerToolbar: {
+        left: 'prev,next today',
+        center: 'title',
+        right: ''
+      },
+      events: '/api/instructor/lessons',
+
+      /* 1) dayCellDidMount: 
+         Called for each date cell. We'll see if that date has any events
+         and if so, add a custom CSS class (fc-day-has-events) for styling. */
+      dayCellDidMount: function(info) {
+        const allEvents = info.view.calendar.getEvents();
+        const eventsOnThisDay = allEvents.filter(e => {
+          return e.start && e.start.toDateString() === info.date.toDateString();
+        });
+
+        if (eventsOnThisDay.length > 0) {
+          // Instead of inline styles, we add our custom class
+          info.el.classList.add('fc-day-has-events');
+        }
+      },
+
+      /* 2) dateClick:
+         Called when the user clicks on a day. 
+         We'll find the events on that day and show them in an alert or modal. */
+      dateClick: function(info) {
+        // info.dateStr is "YYYY-MM-DD", or we can compare with e.start
+        const allEvents = info.view.calendar.getEvents();
+        const eventsOnThisDay = allEvents.filter(e => {
+          return e.start && e.start.toDateString() === info.date.toDateString();
+        });
+
+        if (eventsOnThisDay.length > 0) {
+          // Show a list of event titles in an alert, or show a modal
+          let msg = 'Events on ' + info.dateStr + ':\n';
+          eventsOnThisDay.forEach(evt => {
+            msg += '- ' + evt.title + '\n';
+          });
+          alert(msg);
+        } else {
+          alert('No events on ' + info.dateStr);
+        }
+      }
+    });
+
+    calendar.render();
+  });
+</script>
+<!-- Inside instructor-calendar.ejs, near the bottom: -->
+<!-- A basic Bootstrap modal -->
+<div class="modal fade" id="eventModal" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Events</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="eventModalBody">
+        <!-- We'll fill this with JavaScript -->
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  document.addEventListener('DOMContentLoaded', function() {
+    ...
+    dateClick: function(info) {
+      const allEvents = calendar.getEvents();
+      const eventsOnThisDay = allEvents.filter(e =>
+        e.start && e.start.toDateString() === info.date.toDateString()
+      );
+
+      if (eventsOnThisDay.length > 0) {
+        // Build HTML for these events
+        let html = '<ul>';
+        eventsOnThisDay.forEach(evt => {
+          html += `<li>${evt.title}</li>`;
+        });
+        html += '</ul>';
+
+        // Insert into modal body
+        document.getElementById('eventModalBody').innerHTML = html;
+
+        // Show the Bootstrap modal
+        const modalEl = document.getElementById('eventModal');
+        const modal = new bootstrap.Modal(modalEl);
+        modal.show();
+      } else {
+        alert('No events on ' + info.dateStr);
+      }
+    }
+    ...
+  });
+</script>

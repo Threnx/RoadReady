@@ -1,0 +1,18 @@
+<!-- FILE: views/instructor-conversations.ejs -->
+<!-- Only the unique content for "Instructor Conversations". -->
+
+<h1>Instructor Conversations</h1>
+<p>Below are students you've messaged or who have messaged you. Click one to see the conversation thread.</p>
+
+<ul>
+  <% if (distinctStudents && distinctStudents.length > 0) { %>
+    <% distinctStudents.forEach(st => { %>
+      <li>
+        <%= st.name %> (#<%= st.id %>)
+        - <a href="/instructor/conversations/<%= st.id %>">View Conversation</a>
+      </li>
+    <% }) %>
+  <% } else { %>
+    <li>No student conversations yet.</li>
+  <% } %>
+</ul>

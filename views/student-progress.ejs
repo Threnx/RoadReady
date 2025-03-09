@@ -1,0 +1,52 @@
+<!-- FILE: views/student-progress.ejs -->
+<h1>My Driving Progress</h1>
+
+<!-- Overall Progress -->
+<div class="mb-4">
+  <p>Overall progress: <%- progress %> % mastered</p>
+  <div class="progress" style="max-width: 400px;">
+    <div 
+      class="progress-bar" 
+      role="progressbar" 
+      style="width: <%- progress %>%;" 
+      aria-valuenow="<%- progress %>" 
+      aria-valuemin="0" 
+      aria-valuemax="100"
+    >
+      <%- progress %>%
+    </div>
+  </div>
+</div>
+
+<!-- Competency Table -->
+<table class="table table-bordered align-middle" style="max-width: 600px;">
+  <thead>
+    <tr>
+      <th scope="col">Competency</th>
+      <th scope="col" class="text-center">Status</th>
+    </tr>
+  </thead>
+  <tbody>
+    <% records.forEach(r => { 
+      // We'll color-code the status. Adjust classes as you like.
+      let badgeClass = 'badge bg-secondary';
+      if (r.status === 'mastered') badgeClass = 'badge bg-success';
+      else if (r.status === 'in_progress') badgeClass = 'badge bg-warning text-dark';
+      // not_started defaults to bg-secondary
+    %>
+      <tr>
+        <td><%- r.Competency.name %></td>
+        <td class="text-center">
+          <span class="<%- badgeClass %>">
+            <%- r.status %>
+          </span>
+        </td>
+      </tr>
+    <% }) %>
+  </tbody>
+</table>
+
+<!-- Back to Dashboard Link -->
+<div class="mt-4">
+  <a href="/student" class="btn btn-secondary">Back to Dashboard</a>
+</div>

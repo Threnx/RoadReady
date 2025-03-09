@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>My Conversations</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<h1>My Conversations</h1>
+
+<p>Below are instructors you've messaged (or who have messaged you). Click on one to see the conversation thread.</p>
+
+<ul>
+  <% if (distinctInstructors && distinctInstructors.length > 0) { %>
+    <% distinctInstructors.forEach(instr => { %>
+      <li>
+        <%= instr.name %> (#<%= instr.id %>) 
+        - <a href="/student/conversations/<%= instr.id %>">View Conversation</a>
+      </li>
+    <% }) %>
+  <% } else { %>
+    <li>You have no conversations yet.</li>
+  <% } %>
+</ul>
+
+</body>
+</html>

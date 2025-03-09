@@ -1,0 +1,66 @@
+<!-- FILE: views/availability.ejs -->
+<!-- Only the unique content for "Instructor Availability". No <html>, <head>, or nav. -->
+
+  <h1>Availability for <%= instructor.name %></h1>
+
+  <% if (instructor.onHoliday) { %>
+    <p style="color:red;">This instructor is currently on holiday, no bookings allowed.</p>
+  <% } else { %>
+    <p>Select a day, a timeslot, and a date to request a lesson. The chosen date must match the selected weekday.</p>
+    <form action="/instructor/<%= instructor.id %>/book" method="POST">
+      <label for="day">Day:</label>
+      <select name="day" id="day">
+        <% Object.keys(availability).forEach(day => { %>
+          <% if (availability[day].length > 0) { %>
+            <option value="<%= day %>">
+              <%= day.charAt(0).toUpperCase() + day.slice(1) %>
+            </option>
+          <% } %>
+        <% }) %>
+      </select>
+  
+      <label for="timeslot">Timeslot:</label>
+      <select name="timeslot" id="timeslot">
+        <% Object.keys(availability).forEach(day => { %>
+          <% availability[day].forEach(slot => { %>
+            <option value="<%= day %>:<%= slot %>">
+              <%= day %> <%= slot %>
+            </option>
+          <% }) %>
+        <% }) %>
+      </select>
+  
+      <label for="lessonDate">Date:</label>
+      <input type="date" name="lessonDate" id="lessonDate" required>
+  
+      <button type="submit">Book Lesson</button>
+    </form>
+  
+    <script>
+      const daySelect = document.getElementById('day');
+      const timeslotSelect = document.getElementById('timeslot');
+      
+      function filterTimeslots() {
+        const selectedDay = daySelect.value;
+        for (let i = 0; i < timeslotSelect.options.length; i++) {
+          const val = timeslotSelect.options[i].value;
+          if (val.startsWith(selectedDay + ':')) {
+            timeslotSelect.options[i].style.display = 'block';
+          } else {
+            timeslotSelect.options[i].style.display = 'none';
+          }
+        }
+        // Reset selection to first visible option
+        for (let i = 0; i < timeslotSelect.options.length; i++) {
+          if (timeslotSelect.options[i].style.display !== 'none') {
+            timeslotSelect.selectedIndex = i;
+            break;
+          }
+        }
+      }
+  
+      daySelect.addEventListener('change', filterTimeslots);
+      filterTimeslots();
+    </script>
+  <% } %>
+  
