@@ -14,7 +14,7 @@ const { Server } = require('socket.io');
 const cron = require('node-cron');
 const nodemailer = require('nodemailer');
 
-// Models
+// Models (all-lowercase)
 const user = require('./models/user');
 const lesson = require('./models/lesson');
 const payment = require('./models/payment');
@@ -22,7 +22,7 @@ const review = require('./models/review');
 const message = require('./models/message');
 const studentreview = require('./models/studentreview');
 const notification = require('./models/notification');
-const instructorStudent = require('./models/instructorstudent');
+const instructorstudent = require('./models/instructorstudent');
 const lessonplan = require('./models/lessonplan');
 const competency = require('./models/competency');
 const studentcompetency = require('./models/studentcompetency');
@@ -31,7 +31,7 @@ const studentcompetency = require('./models/studentcompetency');
  * 1) SETUP VIEW ENGINE & EXPRESS-EJS-LAYOUTS
  ***************************************************/
 app.set('view engine', 'ejs');
-app.use(expressLayouts); // automatically uses views/layout.ejs
+app.use(expressLayouts); // uses views/layout.ejs
 
 // Serve static files from "public" folder
 app.use(express.static('public'));
@@ -95,7 +95,6 @@ const transporter = nodemailer.createTransport({
 
 // 2) Send an email
 async function sendEmail(to, subject, text) {
-  // In production, handle errors & HTML
   const mailOptions = {
     from: 'no-reply@yourdrivingapp.com',
     to,
@@ -108,7 +107,7 @@ async function sendEmail(to, subject, text) {
 
 // Real-time notifications
 async function sendNotification(userId, message) {
-  await Notification.create({ userId, message });
+  await notification.create({ userId, message });
   const io = app.locals.io;
   if (io) {
     io.emit('notification', { userId, message });
@@ -118,7 +117,7 @@ async function sendNotification(userId, message) {
 // Check if user is active
 async function loadUserActiveStatus(req, res, next) {
   if (req.session.user) {
-    const u = await User.findByPk(req.session.user.id);
+    const u = await user.findByPk(req.session.user.id);
     if (!u || !u.active) {
       req.session.destroy(err => {});
       return res.status(403).send('Your account is blocked.');
@@ -164,7 +163,7 @@ app.get('/admin', requireLogin, requireAdmin, async (req, res) => {
     ];
   }
 
-  const users = await User.findAll({
+  const users = await user.findAll({
     where: whereClause,
     order: [['name', 'ASC']]
   });
@@ -175,7 +174,7 @@ app.get('/admin', requireLogin, requireAdmin, async (req, res) => {
 app.post('/admin/block/:id', requireLogin, requireAdmin, async (req, res) => {
   try {
     const userId = parseInt(req.params.id, 10);
-    const u = await User.findByPk(userId);
+    const u = await user.findByPk(userId);
     if (!u) throw new Error('User not found');
 
     u.active = false;
@@ -191,7 +190,7 @@ app.post('/admin/block/:id', requireLogin, requireAdmin, async (req, res) => {
 app.post('/admin/unblock/:id', requireLogin, requireAdmin, async (req, res) => {
   try {
     const userId = parseInt(req.params.id, 10);
-    const u = await User.findByPk(userId);
+    const u = await user.findByPk(userId);
     if (!u) throw new Error('User not found');
 
     u.active = true;
@@ -208,11 +207,11 @@ app.post('/admin/unblock/:id', requireLogin, requireAdmin, async (req, res) => {
 app.post('/admin/delete/:id', requireLogin, requireAdmin, async (req, res) => {
   try {
     const userId = parseInt(req.params.id, 10);
-    const user = await User.findByPk(userId);
-    if (!user) throw new Error('User not found');
+    const u = await user.findByPk(userId);
+    if (!u) throw new Error('User not found');
 
-    await user.destroy();
-    req.session.successMessage = `User "${user.name}" deleted successfully.`;
+    await u.destroy();
+    req.session.successMessage = `User "${u.name}" deleted successfully.`;
     res.redirect('/admin');
   } catch (error) {
     req.session.errorMessage = error.message || 'Error deleting user.';
@@ -222,7 +221,7 @@ app.post('/admin/delete/:id', requireLogin, requireAdmin, async (req, res) => {
 
 // NOTIFICATIONS
 app.get('/notifications', requireLogin, async (req, res) => {
-  const notifications = await Notification.findAll({
+  const notifications = await notification.findAll({
     where: { userId: req.session.user.id },
     order: [['createdAt', 'DESC']]
   });
@@ -231,7 +230,7 @@ app.get('/notifications', requireLogin, async (req, res) => {
 
 app.post('/notifications/mark-read', requireLogin, async (req, res) => {
   const { notificationId } = req.body;
-  const notif = await Notification.findOne({ where: { id: notificationId, userId: req.session.user.id }});
+  const notif = await notification.findOne({ where: { id: notificationId, userId: req.session.user.id }});
   if (!notif) return res.status(404).send('Notification not found');
   notif.read = true;
   await notif.save();
@@ -269,11 +268,11 @@ app.get('/instructors', requireLogin, async (req, res) => {
     const limit = parseInt(req.query.limit, 10) || 10;
     const offset = (page - 1) * limit;
 
-    const totalInstructors = await User.count({ where: whereClause });
-    const instructors = await User.findAll({
+    const totalInstructors = await user.count({ where: whereClause });
+    const instructors = await user.findAll({
       where: whereClause,
       order: [['name', 'ASC']],
-      include: [{ model: Review, as: 'ReceivedReviews' }],
+      include: [{ model: review, as: 'ReceivedReviews' }],
       limit,
       offset
     });
@@ -315,19 +314,19 @@ app.get('/instructors', requireLogin, async (req, res) => {
   }
 });
 
-// INSTRUCTOR COMPETENCIES (UPDATING STUDENT COMPETENCY)
+// INSTRUCTOR COMPETENCIES
 app.post('/instructor/competencies/update', requireLogin, requireInstructor, async (req, res) => {
   try {
     const { studentId, competencyId, status } = req.body;
-    const student = await User.findOne({ where: { id: studentId, role: 'student' } });
-    if (!student) return res.status(404).send('Student not found');
+    const studentUser = await user.findOne({ where: { id: studentId, role: 'student' } });
+    if (!studentUser) return res.status(404).send('Student not found');
 
-    let record = await StudentCompetency.findOne({
-      where: { studentId: student.id, competencyId }
+    let record = await studentcompetency.findOne({
+      where: { studentId: studentUser.id, competencyId }
     });
     if (!record) {
-      record = await StudentCompetency.create({
-        studentId: student.id,
+      record = await studentcompetency.create({
+        studentId: studentUser.id,
         competencyId,
         status
       });
@@ -346,13 +345,13 @@ app.post('/instructor/competencies/update', requireLogin, requireInstructor, asy
 // INSTRUCTOR AVAILABILITY
 app.get('/instructor/:id/availability', requireLogin, requireStudent, async (req, res) => {
   const instructorId = parseInt(req.params.id, 10);
-  const instructor = await User.findOne({ where: { id: instructorId, role: 'instructor' } });
-  if (!instructor) return res.status(404).send('Instructor not found.');
+  const instructorUser = await user.findOne({ where: { id: instructorId, role: 'instructor' } });
+  if (!instructorUser) return res.status(404).send('Instructor not found.');
 
-  const availability = instructor.availability ? JSON.parse(instructor.availability) : {};
+  const availability = instructorUser.availability ? JSON.parse(instructorUser.availability) : {};
   res.render('availability', {
     title: 'Instructor Availability',
-    instructor,
+    instructor: instructorUser,
     availability
   });
 });
@@ -365,13 +364,13 @@ app.post('/instructor/:id/book', requireLogin, requireStudent, async (req, res) 
 // INSTRUCTOR ROSTER
 app.get('/instructor/roster', requireLogin, requireInstructor, async (req, res) => {
   const instructorId = req.session.user.id;
-  const pending = await InstructorStudent.findAll({
+  const pending = await instructorstudent.findAll({
     where: { instructorId, status: 'pending' },
-    include: [{ model: User, as: 'Student' }]
+    include: [{ model: user, as: 'Student' }]
   });
-  const accepted = await InstructorStudent.findAll({
+  const accepted = await instructorstudent.findAll({
     where: { instructorId, status: 'accepted' },
-    include: [{ model: User, as: 'Student' }]
+    include: [{ model: user, as: 'Student' }]
   });
 
   res.render('instructor-roster', {
@@ -398,43 +397,43 @@ app.get('/instructor/calendar', requireLogin, requireInstructor, (req, res) => {
 app.get('/instructor', requireLogin, requireInstructor, async (req, res) => {
   try {
     const instructorId = req.session.user.id;
-    const instructor = await User.findByPk(instructorId);
+    const instructorUser = await user.findByPk(instructorId);
 
-    const upcomingLessons = await Lesson.findAll({
+    const upcomingLessons = await lesson.findAll({
       where: { instructorId, status: 'upcoming' },
-      include: [{ model: User, as: 'Student' }]
+      include: [{ model: user, as: 'Student' }]
     });
-    const completedLessons = await Lesson.findAll({
+    const completedLessons = await lesson.findAll({
       where: { instructorId, status: 'completed' },
-      include: [{ model: User, as: 'Student' }]
+      include: [{ model: user, as: 'Student' }]
     });
 
     const studentIds = new Set();
     upcomingLessons.forEach(l => studentIds.add(l.studentId));
     completedLessons.forEach(l => studentIds.add(l.studentId));
 
-    const studentsForMessaging = await User.findAll({
+    const studentsForMessaging = await user.findAll({
       where: { id: Array.from(studentIds) }
     });
 
     let parsedAvailability = null;
-    if (instructor.availability) {
+    if (instructorUser.availability) {
       try {
-        parsedAvailability = JSON.parse(instructor.availability);
+        parsedAvailability = JSON.parse(instructorUser.availability);
       } catch (err) {
         console.error('Error parsing instructor availability:', err);
       }
     }
 
     let carTypeArray = [];
-    if (Array.isArray(instructor.carType)) {
-      carTypeArray = instructor.carType;
-    } else if (typeof instructor.carType === 'string') {
-      carTypeArray = instructor.carType.split(',');
+    if (Array.isArray(instructorUser.carType)) {
+      carTypeArray = instructorUser.carType;
+    } else if (typeof instructorUser.carType === 'string') {
+      carTypeArray = instructorUser.carType.split(',');
     }
 
     const instructorData = {
-      ...instructor.get({ plain: true }),
+      ...instructorUser.get({ plain: true }),
       availability: parsedAvailability,
       carType: carTypeArray
     };
@@ -459,38 +458,36 @@ app.post('/instructor/lessons/:id/complete', requireLogin, requireInstructor, as
   const { notes } = req.body;
 
   try {
-    const lesson = await Lesson.findOne({ 
+    const lessonRow = await lesson.findOne({
       where: { id: lessonId, instructorId, status: 'upcoming' }
     });
-    if (!lesson) {
+    if (!lessonRow) {
       return res.status(404).send('Lesson not found, not upcoming, or does not belong to you.');
     }
 
     // Mark lesson as completed
-    lesson.status = 'completed';
-    lesson.notes = notes;
-    await lesson.save();
+    lessonRow.status = 'completed';
+    lessonRow.notes = notes;
+    await lessonRow.save();
 
     // Award XP to the student
-    const student = await User.findByPk(lesson.studentId);
-    if (student) {
-      // For example, +25 XP for each completed lesson
-      const oldXP = student.xp || 0;   // fallback if not defined
-      const oldLevel = student.level || 1;
+    const studentUser = await user.findByPk(lessonRow.studentId);
+    if (studentUser) {
+      const oldXP = studentUser.xp || 0;
+      const oldLevel = studentUser.level || 1;
 
       const newXP = oldXP + 25;
-      student.xp = newXP;
+      studentUser.xp = newXP;
 
       // level = floor(xp/100) + 1
       const newLevel = Math.floor(newXP / 100) + 1;
-      student.level = newLevel;
+      studentUser.level = newLevel;
 
-      await student.save();
+      await studentUser.save();
 
       // If the student's level changed, you could send a notification
       if (newLevel > oldLevel) {
-        console.log(`Student #${student.id} leveled up to Level ${newLevel}!`);
-        // or sendNotification(student.id, `Congrats! You've reached level ${newLevel}!`);
+        console.log(`Student #${studentUser.id} leveled up to Level ${newLevel}!`);
       }
     }
 
@@ -514,8 +511,8 @@ app.post('/instructor/profile/update', requireLogin, requireInstructor, async (r
   } = req.body;
 
   try {
-    const instructor = await User.findByPk(instructorId);
-    if (!instructor) return res.status(404).send('Instructor not found.');
+    const instructorUser = await user.findByPk(instructorId);
+    if (!instructorUser) return res.status(404).send('Instructor not found.');
 
     let finalCarType = [];
     if (Array.isArray(carTypeArray)) {
@@ -545,14 +542,14 @@ app.post('/instructor/profile/update', requireLogin, requireInstructor, async (r
       }
     });
 
-    instructor.carType = finalCarType;
-    instructor.costManual = parsedCostManual;
-    instructor.costAutomatic = parsedCostAuto;
-    instructor.costStudentCar = parsedCostStudentCar;
-    instructor.onHoliday = isOnHoliday;
-    instructor.availability = JSON.stringify(finalAvailability);
+    instructorUser.carType = finalCarType;
+    instructorUser.costManual = parsedCostManual;
+    instructorUser.costAutomatic = parsedCostAuto;
+    instructorUser.costStudentCar = parsedCostStudentCar;
+    instructorUser.onHoliday = isOnHoliday;
+    instructorUser.availability = JSON.stringify(finalAvailability);
 
-    await instructor.save();
+    await instructorUser.save();
     res.redirect('/instructor');
   } catch (error) {
     console.error('Error updating profile:', error);
@@ -565,18 +562,18 @@ app.post('/student/lessons/:id/cancel', requireLogin, requireStudent, async (req
   const lessonId = parseInt(req.params.id, 10);
   const studentId = req.session.user.id;
 
-  const lesson = await Lesson.findOne({ where: { id: lessonId, studentId, status: 'upcoming' } });
-  if (!lesson) return res.status(404).send('Lesson not found or not upcoming.');
+  const lessonRow = await lesson.findOne({ where: { id: lessonId, studentId, status: 'upcoming' } });
+  if (!lessonRow) return res.status(404).send('Lesson not found or not upcoming.');
 
   const now = new Date();
-  const diff = lesson.date - now;
+  const diff = lessonRow.date - now;
   if (diff < 24*60*60*1000) {
     return res.status(400).send('Cannot cancel less than 24 hours before lesson start.');
   }
 
-  lesson.status = 'canceled';
-  await lesson.save();
-  await sendNotification(lesson.instructorId, `A student canceled their lesson on ${lesson.date.toLocaleString()}.`);
+  lessonRow.status = 'canceled';
+  await lessonRow.save();
+  await sendNotification(lessonRow.instructorId, `A student canceled their lesson on ${lessonRow.date.toLocaleString()}.`);
   res.redirect('/student');
 });
 
@@ -585,16 +582,16 @@ app.post('/student/lessons/:id/reschedule', requireLogin, requireStudent, async 
   const studentId = req.session.user.id;
   const { timeslot, lessonDate } = req.body;
 
-  const lesson = await Lesson.findOne({ where: { id: lessonId, studentId, status: 'upcoming' } });
-  if (!lesson) return res.status(404).send('Lesson not found or not upcoming.');
+  const lessonRow = await lesson.findOne({ where: { id: lessonId, studentId, status: 'upcoming' } });
+  if (!lessonRow) return res.status(404).send('Lesson not found or not upcoming.');
 
-  const instructor = await User.findOne({ where: { id: lesson.instructorId, role: 'instructor' } });
-  if (!instructor || instructor.onHoliday) {
+  const instructorUser = await user.findOne({ where: { id: lessonRow.instructorId, role: 'instructor' } });
+  if (!instructorUser || instructorUser.onHoliday) {
     return res.status(403).send('Instructor not available or on holiday.');
   }
-  if (!instructor.availability) return res.status(403).send('Instructor has no availability.');
+  if (!instructorUser.availability) return res.status(403).send('Instructor has no availability.');
 
-  const availability = JSON.parse(instructor.availability);
+  const availability = JSON.parse(instructorUser.availability);
   const [day, slot] = timeslot.split(':');
   if (!availability[day] || !availability[day].includes(slot)) {
     return res.status(400).send('Selected timeslot not in instructor availability.');
@@ -623,11 +620,11 @@ app.post('/student/lessons/:id/reschedule', requireLogin, requireStudent, async 
   const lessonEnd = new Date(chosenDate);
   lessonEnd.setHours(endHour, endMin, 0, 0);
 
-  const conflict = await Lesson.findOne({
+  const conflict = await lesson.findOne({
     where: {
-      instructorId: instructor.id,
+      instructorId: instructorUser.id,
       status: 'upcoming',
-      id: { [Op.ne]: lesson.id },
+      id: { [Op.ne]: lessonRow.id },
       [Op.and]: [
         { date: { [Op.lt]: lessonEnd } },
         { endDate: { [Op.gt]: lessonStart } }
@@ -638,11 +635,11 @@ app.post('/student/lessons/:id/reschedule', requireLogin, requireStudent, async 
     return res.status(400).send('Timeslot conflicts with another lesson.');
   }
 
-  lesson.date = lessonStart;
-  lesson.endDate = lessonEnd;
-  lesson.notes = `${day}:${slot}`;
-  await lesson.save();
-  await sendNotification(instructor.id, `A student rescheduled their lesson to ${lessonStart.toLocaleString()}.`);
+  lessonRow.date = lessonStart;
+  lessonRow.endDate = lessonEnd;
+  lessonRow.notes = `${day}:${slot}`;
+  await lessonRow.save();
+  await sendNotification(instructorUser.id, `A student rescheduled their lesson to ${lessonStart.toLocaleString()}.`);
   res.redirect('/student');
 });
 
@@ -652,34 +649,34 @@ app.get('/student', requireLogin, requireStudent, async (req, res) => {
     const studentId = req.session.user.id;
 
     // Fetch the student record from DB
-    const studentRecord = await User.findByPk(studentId);
+    const studentRecord = await user.findByPk(studentId);
     if (!studentRecord) {
       return res.status(404).send('Student not found.');
     }
 
     // 1) upcoming & completed
-    const upcomingLessons = await Lesson.findAll({
+    const upcomingLessons = await lesson.findAll({
       where: { studentId, status: 'upcoming' },
       include: [
-        { model: User, as: 'Instructor' },
-        { model: Payment, as: 'Payments' }
+        { model: user, as: 'Instructor' },
+        { model: payment, as: 'Payments' }
       ]
     });
-    const completedLessons = await Lesson.findAll({
+    const completedLessons = await lesson.findAll({
       where: { studentId, status: 'completed' },
-      include: [{ model: User, as: 'Instructor' }]
+      include: [{ model: user, as: 'Instructor' }]
     });
 
     // 2) instructors for messaging
     const instructorIds = new Set();
     upcomingLessons.forEach(l => instructorIds.add(l.instructorId));
     completedLessons.forEach(l => instructorIds.add(l.instructorId));
-    const instructorsForMessaging = await User.findAll({
+    const instructorsForMessaging = await user.findAll({
       where: { id: Array.from(instructorIds) }
     });
 
     // 3) reviews
-    const writtenReviews = await Review.findAll({ where: { studentId } });
+    const writtenReviews = await review.findAll({ where: { studentId } });
     const reviewedInstructorIds = new Set(writtenReviews.map(r => r.instructorId));
 
     // 4) achievements
@@ -699,7 +696,7 @@ app.get('/student', requireLogin, requireStudent, async (req, res) => {
 
     res.render('student', {
       title: 'Student Dashboard',
-      student: studentRecord,  // pass the full student object
+      student: studentRecord,
       upcomingLessons,
       completedLessons,
       reviewedInstructorIds,
@@ -715,9 +712,9 @@ app.get('/student', requireLogin, requireStudent, async (req, res) => {
 // STUDENT PROGRESS
 app.get('/student/progress', requireLogin, requireStudent, async (req, res) => {
   const studentId = req.session.user.id;
-  const records = await StudentCompetency.findAll({
+  const records = await studentcompetency.findAll({
     where: { studentId },
-    include: [{ model: Competency }]
+    include: [{ model: competency }]
   });
 
   const total = records.length;
@@ -735,9 +732,9 @@ app.get('/student/progress', requireLogin, requireStudent, async (req, res) => {
 app.get('/student/plans', requireLogin, requireStudent, async (req, res) => {
   try {
     const studentId = req.session.user.id;
-    const plans = await LessonPlan.findAll({
+    const plans = await lessonplan.findAll({
       where: { studentId },
-      include: [{ model: User, as: 'Instructor' }]
+      include: [{ model: user, as: 'Instructor' }]
     });
 
     res.render('student-plans', {
@@ -755,7 +752,7 @@ app.get('/student/conversations/:instructorId', requireLogin, requireStudent, as
   const studentId = req.session.user.id;
   const instructorId = parseInt(req.params.instructorId, 10);
 
-  const messages = await Message.findAll({
+  const messagesFound = await message.findAll({
     where: {
       [Op.or]: [
         { senderId: studentId, recipientId: instructorId },
@@ -764,16 +761,16 @@ app.get('/student/conversations/:instructorId', requireLogin, requireStudent, as
     },
     order: [['createdAt','ASC']],
     include: [
-      { model: User, as: 'Sender', attributes: ['id','name','role'] },
-      { model: User, as: 'Recipient', attributes: ['id','name','role'] }
+      { model: user, as: 'Sender', attributes: ['id','name','role'] },
+      { model: user, as: 'Recipient', attributes: ['id','name','role'] }
     ]
   });
 
-  const hasInstructorReply = messages.some(m => m.Sender.role === 'instructor');
+  const hasInstructorReply = messagesFound.some(m => m.Sender.role === 'instructor');
   res.render('student-single-conversation', {
     title: 'Conversation with Instructor',
     instructorId,
-    messages,
+    messages: messagesFound,
     hasInstructorReply
   });
 });
@@ -782,13 +779,13 @@ app.get('/student/conversations/:instructorId', requireLogin, requireStudent, as
 app.get('/student/conversations', requireLogin, requireStudent, async (req, res) => {
   const studentId = req.session.user.id;
 
-  const sent = await Message.findAll({
+  const sent = await message.findAll({
     where: { senderId: studentId },
-    include: [{ model: User, as: 'Recipient', attributes: ['id','name','role'] }]
+    include: [{ model: user, as: 'Recipient', attributes: ['id','name','role'] }]
   });
-  const received = await Message.findAll({
+  const received = await message.findAll({
     where: { recipientId: studentId },
-    include: [{ model: User, as: 'Sender', attributes: ['id','name','role'] }]
+    include: [{ model: user, as: 'Sender', attributes: ['id','name','role'] }]
   });
 
   const instructorsSet = new Map();
@@ -813,21 +810,21 @@ app.get('/student/conversations', requireLogin, requireStudent, async (req, res)
 app.post('/student/request-instructor/:id', requireLogin, requireStudent, async (req, res) => {
   const instructorId = parseInt(req.params.id, 10);
   const studentId = req.session.user.id;
-  const { message } = req.body;
+  const { message: requestMsg } = req.body;
 
-  const instructor = await User.findOne({ where: { id: instructorId, role: 'instructor', active:true } });
-  if (!instructor) return res.status(404).send('Instructor not found or inactive.');
+  const instructorUser = await user.findOne({ where: { id: instructorId, role: 'instructor', active:true } });
+  if (!instructorUser) return res.status(404).send('Instructor not found or inactive.');
 
-  const existing = await InstructorStudent.findOne({ where: { instructorId, studentId } });
+  const existing = await instructorstudent.findOne({ where: { instructorId, studentId } });
   if (existing) {
     return res.status(400).send(`You already have a relationship with this instructor: ${existing.status}`);
   }
 
-  await InstructorStudent.create({
+  await instructorstudent.create({
     instructorId,
     studentId,
     status: 'pending',
-    message: message || null
+    message: requestMsg || null
   });
 
   await sendNotification(instructorId, `New roster request from student #${studentId}`);
@@ -837,15 +834,15 @@ app.post('/student/request-instructor/:id', requireLogin, requireStudent, async 
 // Student lessons as JSON for FullCalendar
 app.get('/api/student/lessons', requireLogin, requireStudent, async (req, res) => {
   const studentId = req.session.user.id;
-  const lessons = await Lesson.findAll({
+  const lessonsFound = await lesson.findAll({
     where: { studentId }
   });
 
-  const events = lessons.map(lesson => ({
-    id: lesson.id,
-    title: `Lesson w/ Instructor #${lesson.instructorId}`,
-    start: lesson.date.toISOString(),
-    end: lesson.endDate ? lesson.endDate.toISOString() : lesson.date.toISOString()
+  const events = lessonsFound.map(l => ({
+    id: l.id,
+    title: `Lesson w/ Instructor #${l.instructorId}`,
+    start: l.date.toISOString(),
+    end: l.endDate ? l.endDate.toISOString() : l.date.toISOString()
   }));
 
   res.json(events);
@@ -866,27 +863,27 @@ app.get('/login', (req, res) => {
 app.post('/login', async (req, res) => {
   const { email, password } = req.body;
   try {
-    const user = await User.findOne({ where: { email } });
-    if (!user || !user.active) {
+    const foundUser = await user.findOne({ where: { email } });
+    if (!foundUser || !foundUser.active) {
       return res.status(401).send('Invalid credentials or account blocked. <a href="/login">Try again</a>');
     }
 
-    const validPassword = await bcrypt.compare(password, user.password);
+    const validPassword = await bcrypt.compare(password, foundUser.password);
     if (!validPassword) {
       return res.status(401).send('Invalid credentials. <a href="/login">Try again</a>');
     }
 
     req.session.user = {
-      id: user.id,
-      name: user.name,
-      role: user.role
+      id: foundUser.id,
+      name: foundUser.name,
+      role: foundUser.role
     };
 
-    if (user.role === 'admin') {
+    if (foundUser.role === 'admin') {
       res.redirect('/admin');
-    } else if (user.role === 'instructor') {
+    } else if (foundUser.role === 'instructor') {
       res.redirect('/instructor');
-    } else if (user.role === 'student') {
+    } else if (foundUser.role === 'student') {
       res.redirect('/student');
     } else {
       res.redirect('/');
@@ -905,7 +902,7 @@ app.post('/register', async (req, res) => {
   const { name, email, password, role } = req.body;
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
-    await User.create({ name, email, password: hashedPassword, role: role || 'student' });
+    await user.create({ name, email, password: hashedPassword, role: role || 'student' });
     res.redirect('/');
   } catch (error) {
     console.error('Error creating user:', error);
@@ -925,7 +922,7 @@ app.get('/logout', (req, res) => {
  ***************************************************/
 app.get('/test-login/admin', async (req, res) => {
   try {
-    const adminUser = await User.findOne({ where: { email: 'admin@example.com', role: 'admin' } });
+    const adminUser = await user.findOne({ where: { email: 'admin@example.com', role: 'admin' } });
     if (!adminUser || !adminUser.active) {
       return res.status(500).send('Test admin not found or blocked.');
     }
@@ -943,7 +940,7 @@ app.get('/test-login/admin', async (req, res) => {
 
 app.get('/test-login/instructor', async (req, res) => {
   try {
-    const testInstructor = await User.findOne({ where: { email: 'test_instructor@example.com', role: 'instructor' } });
+    const testInstructor = await user.findOne({ where: { email: 'test_instructor@example.com', role: 'instructor' } });
     if (!testInstructor || !testInstructor.active) {
       return res.status(500).send('Test instructor not found or blocked.');
     }
@@ -961,7 +958,7 @@ app.get('/test-login/instructor', async (req, res) => {
 
 app.get('/test-login/student', async (req, res) => {
   try {
-    const testStudent = await User.findOne({ where: { email: 'test_student@example.com', role: 'student' } });
+    const testStudent = await user.findOne({ where: { email: 'test_student@example.com', role: 'student' } });
     if (!testStudent || !testStudent.active) {
       return res.status(500).send('Test student not found or blocked.');
     }
@@ -986,21 +983,21 @@ sequelize.sync({ force: true })
 
     const hashedPassword = await bcrypt.hash('password', 10);
 
-    await User.create({
+    await user.create({
       name: 'Admin User',
       email: 'admin@example.com',
       password: hashedPassword,
       role: 'admin',
       active: true
     });
-    await User.create({
+    await user.create({
       name: 'Test Instructor',
       email: 'test_instructor@example.com',
       password: hashedPassword,
       role: 'instructor',
       active: true
     });
-    await User.create({
+    await user.create({
       name: 'Test Student',
       email: 'test_student@example.com',
       password: hashedPassword,
@@ -1009,9 +1006,9 @@ sequelize.sync({ force: true })
     });
 
     // Seed some Competencies
-    const parallelParking = await Competency.create({ name: 'Parallel Parking' });
-    const roundabouts = await Competency.create({ name: 'Roundabouts' });
-    const reversing = await Competency.create({ name: 'Reversing' });
+    await competency.create({ name: 'Parallel Parking' });
+    await competency.create({ name: 'Roundabouts' });
+    await competency.create({ name: 'Reversing' });
 
     const server = http.createServer(app);
     const io = new Server(server);
@@ -1053,28 +1050,28 @@ app.get('/test-notification', async (req, res) => {
  ***************************************************/
 // 1) route for student to set reminder preferences
 app.get('/student/profile', requireLogin, requireStudent, async (req, res) => {
-  const student = await User.findByPk(req.session.user.id);
-  if (!student) return res.status(404).send('Student not found.');
+  const studentRow = await user.findByPk(req.session.user.id);
+  if (!studentRow) return res.status(404).send('Student not found.');
 
   res.render('student-profile', {
     title: 'My Profile',
-    student
+    student: studentRow
   });
 });
 
 app.post('/student/profile', requireLogin, requireStudent, async (req, res) => {
   const { reminderHours, remindersOptOut, locale } = req.body;
-  const student = await User.findByPk(req.session.user.id);
-  if (!student) return res.status(404).send('Student not found.');
+  const studentRow = await user.findByPk(req.session.user.id);
+  if (!studentRow) return res.status(404).send('Student not found.');
 
   const optOut = (remindersOptOut === 'on');
   const hours = parseInt(reminderHours, 10) || 24;
 
-  student.reminderHours = hours;
-  student.remindersOptOut = optOut;
-  student.locale = locale || 'en-GB';
+  studentRow.reminderHours = hours;
+  studentRow.remindersOptOut = optOut;
+  studentRow.locale = locale || 'en-GB';
 
-  await student.save();
+  await studentRow.save();
   req.session.successMessage = 'Profile updated!';
   res.redirect('/student/profile');
 });
@@ -1087,33 +1084,33 @@ cron.schedule('0 * * * *', async () => {
     const now = new Date();
 
     // Find all upcoming lessons with date>now
-    const allUpcoming = await Lesson.findAll({
+    const allUpcoming = await lesson.findAll({
       where: {
         status: 'upcoming',
         date: { [Op.gt]: now }
       },
       include: [
-        { model: User, as: 'Student' },
-        { model: User, as: 'Instructor' }
+        { model: user, as: 'Student' },
+        { model: user, as: 'Instructor' }
       ]
     });
 
-    for (const lesson of allUpcoming) {
-      const student = lesson.Student;
-      const instructor = lesson.Instructor;
-      if (!student || !instructor) continue;
+    for (const l of allUpcoming) {
+      const studentUser = l.Student;
+      const instructorUser = l.Instructor;
+      if (!studentUser || !instructorUser) continue;
 
-      if (student.remindersOptOut) {
+      if (studentUser.remindersOptOut) {
         continue;
       }
 
-      const reminderWindow = student.reminderHours || 24;
-      const lessonTime = lesson.date;
+      const reminderWindow = studentUser.reminderHours || 24;
+      const lessonTime = l.date;
       const diffMs = lessonTime - now;
       const diffHours = diffMs / (1000 * 60 * 60);
 
       if (diffHours > 0 && diffHours <= reminderWindow) {
-        const userLocale = student.locale || 'en-GB';
+        const userLocale = studentUser.locale || 'en-GB';
         const dateFormatter = new Intl.DateTimeFormat(userLocale, {
           dateStyle: 'medium',
           timeStyle: 'short'
@@ -1122,21 +1119,21 @@ cron.schedule('0 * * * *', async () => {
 
         // Send reminder to student
         const studentSubject = 'Lesson Reminder';
-        const studentText = `Hello ${student.name},
-This is a reminder that you have a lesson on ${localLessonTime} with Instructor #${lesson.instructorId}.
+        const studentText = `Hello ${studentUser.name},
+This is a reminder that you have a lesson on ${localLessonTime} with Instructor #${l.instructorId}.
 Please be prepared and arrive on time.`;
 
-        await sendEmail(student.email, studentSubject, studentText);
+        await sendEmail(studentUser.email, studentSubject, studentText);
 
         // Also to instructor if needed
         const instructorSubject = 'Upcoming Lesson Reminder';
-        const instructorText = `Hello ${instructor.name},
-You have an upcoming lesson on ${localLessonTime} with Student #${student.id}.
+        const instructorText = `Hello ${instructorUser.name},
+You have an upcoming lesson on ${localLessonTime} with Student #${studentUser.id}.
 Please be prepared.`;
 
-        await sendEmail(instructor.email, instructorSubject, instructorText);
+        await sendEmail(instructorUser.email, instructorSubject, instructorText);
 
-        console.log(`Reminder sent for lesson #${lesson.id}, student #${student.id}, instructor #${instructor.id}`);
+        console.log(`Reminder sent for lesson #${l.id}, student #${studentUser.id}, instructor #${instructorUser.id}`);
       }
     }
   } catch (error) {
