@@ -15,17 +15,17 @@ const cron = require('node-cron');
 const nodemailer = require('nodemailer');
 
 // Models
-const User = require('./models/User');
-const Lesson = require('./models/Lesson');
-const Payment = require('./models/Payment');
-const Review = require('./models/Review');
-const Message = require('./models/Message');
-const StudentReview = require('./models/StudentReview');
-const Notification = require('./models/Notification');
-const InstructorStudent = require('./models/InstructorStudent');
-const LessonPlan = require('./models/LessonPlan');
-const Competency = require('./models/Competency');
-const StudentCompetency = require('./models/StudentCompetency');
+const User = require('./models/user');
+const Lesson = require('./models/lesson');
+const Payment = require('./models/payment');
+const Review = require('./models/review');
+const Message = require('./models/message');
+const StudentReview = require('./models/studentreview');
+const Notification = require('./models/notification');
+const InstructorStudent = require('./models/instructorstudent');
+const LessonPlan = require('./models/lessonplan');
+const Competency = require('./models/competency');
+const StudentCompetency = require('./models/studentcompetency');
 
 /***************************************************
  * 1) SETUP VIEW ENGINE & EXPRESS-EJS-LAYOUTS
