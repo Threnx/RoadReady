@@ -1,3 +1,5 @@
+// FILE: models/User.js
+
 const { DataTypes } = require('sequelize');
 const sequelize = require('../db');
 
@@ -14,7 +16,7 @@ const User = sequelize.define('User', {
   role: {
     type: DataTypes.STRING,
     allowNull: false,
-    defaultValue: 'student' // 'admin', 'instructor', 'student', 'blocked'
+    defaultValue: 'student'
   },
   password: {
     type: DataTypes.STRING,
@@ -43,7 +45,24 @@ const User = sequelize.define('User', {
   active: {
     type: DataTypes.BOOLEAN,
     defaultValue: true
+  },
+
+  // Student XP/Level fields, if you have them
+  xp: {
+    type: DataTypes.INTEGER,
+    defaultValue: 0
+  },
+  level: {
+    type: DataTypes.INTEGER,
+    defaultValue: 1
+  },
+
+  // NEW: badges for instructors
+  badges: {
+    type: DataTypes.TEXT, // store as JSON string
+    defaultValue: null
   }
+
 });
 
 module.exports = User;

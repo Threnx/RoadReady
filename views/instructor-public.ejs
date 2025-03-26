@@ -1,0 +1,33 @@
+ <!-- FILE: views/instructor-public.ejs or similar -->
+ <h1><%= instructor.name %>’s Profile</h1>
+ <p>Car Type: <%= instructor.carType || 'N/A' %></p>
+ <p>Average Rating: <%= instructor.avgRating %></p>
+ 
+ <!-- Show badges if any -->
+ <% 
+   let publicBadges = [];
+   if (instructor.badges) {
+     try {
+       publicBadges = JSON.parse(instructor.badges);
+     } catch (err) {
+       publicBadges = [];
+     }
+   }
+ %>
+ <h2>Badges</h2>
+ <% if (publicBadges.length > 0) { %>
+   <div class="row row-cols-2 row-cols-md-4 g-3">
+     <% publicBadges.forEach(b => { %>
+       <div class="col">
+         <div class="card">
+           <div class="card-body">
+             <strong><%= b %></strong>
+           </div>
+         </div>
+       </div>
+     <% }) %>
+   </div>
+ <% } else { %>
+   <p>This instructor has not earned any badges yet.</p>
+ <% } %>
+ 

@@ -1,0 +1,22 @@
+<!-- FILE: views/partials/achievements.ejs -->
+<div class="border p-3 mb-3" style="background-color: #f8f9fa;">
+    <h2>Achievements</h2>
+    <% if (achievements && achievements.length > 0) { %>
+      <!-- row-cols-2 row-cols-lg-4: up to 4 achievements per row on large screens -->
+      <div class="row row-cols-2 row-cols-lg-4 g-2 mt-2">
+        <% achievements.forEach(a => { %>
+          <div class="col">
+            <div class="card h-100">
+              <div class="card-body p-2">
+                <strong><%= a.name %></strong>
+                <p class="small text-muted mb-0"><%= a.description %></p>
+              </div>
+            </div>
+          </div>
+        <% }) %>
+      </div>
+    <% } else { %>
+      <p>You haven't unlocked any achievements yet!</p>
+    <% } %>
+  </div>
+  

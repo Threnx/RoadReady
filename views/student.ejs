@@ -4,143 +4,207 @@
   Manage your lessons, track your progress, and communicate with instructors.
 </p>
 
-<!-- 1) Search for an Instructor (Now at the top) -->
-<h2>Search for an Instructor</h2>
-<p>
-  <a href="/instructors" class="btn btn-info">
-    Click here to find instructors
-  </a>
-</p>
+<div class="row">
+  <!-- LEFT SIDE (8 columns) -->
+  <div class="col-md-8">
+    
+    <!-- Student XP / Level -->
+    <% if (student) { %>
+      <div class="alert alert-primary">
+        <strong>Level:</strong> <%= student.level || 1 %><br>
+        <strong>XP:</strong> <%= student.xp || 0 %>
+      </div>
+    <% } %>
 
-<hr class="my-4">
+    <!-- 1) Search for an Instructor -->
+    <h2>Search for an Instructor</h2>
+    <p>
+      <a href="/instructors" class="btn btn-info">
+        Click here to find instructors
+      </a>
+    </p>
+    <hr class="my-4">
 
-<!-- 2) Upcoming Lessons -->
-<h2>Your Upcoming Lessons</h2>
-<% if (upcomingLessons && upcomingLessons.length > 0) { %>
-  <table class="table table-striped">
-    <thead>
-      <tr>
-        <th>Instructor</th>
-        <th>Date/Time</th>
-        <th>Status</th>
-        <th>Payment</th>
-      </tr>
-    </thead>
-    <tbody>
-      <% upcomingLessons.forEach(lesson => {
-        const isPaid = lesson.Payments && lesson.Payments.length > 0;
-        const price = lesson.Instructor.lessonPrice || 30.00;
-      %>
-        <tr>
-          <td>
-            <strong><%= lesson.Instructor.name %></strong><br>
-            <span class="text-muted">Car Type: <%= lesson.Instructor.carType || 'N/A' %></span>
-          </td>
-          <td><%= lesson.date.toLocaleString() %></td>
-          <td><%= lesson.status %></td>
-          <td>
-            <% if (!isPaid) { %>
-              <form action="/student/lessons/<%= lesson.id %>/pay" method="POST" class="d-inline">
-                <input type="hidden" name="amount" value="<%= price %>">
-                <button type="submit" class="btn btn-sm btn-warning">
-                  Pay £<%= price %>
-                </button>
+    <!-- 2) Upcoming Lessons -->
+    <h2>Your Upcoming Lessons</h2>
+    <% if (upcomingLessons && upcomingLessons.length > 0) { %>
+      <table class="table table-striped">
+        <thead>
+          <tr>
+            <th>Instructor</th>
+            <th>Date/Time</th>
+            <th>Status</th>
+            <th>Payment</th>
+          </tr>
+        </thead>
+        <tbody>
+          <% upcomingLessons.forEach(lesson => {
+            const isPaid = lesson.Payments && lesson.Payments.length > 0;
+            const price = lesson.Instructor.lessonPrice || 30.00;
+          %>
+            <tr>
+              <td>
+                <strong><%= lesson.Instructor.name %></strong><br>
+                <span class="text-muted">
+                  Car Type: <%= lesson.Instructor.carType || 'N/A' %>
+                </span>
+              </td>
+              <td><%= lesson.date.toLocaleString() %></td>
+              <td><%= lesson.status %></td>
+              <td>
+                <% if (!isPaid) { %>
+                  <form action="/student/lessons/<%= lesson.id %>/pay" method="POST" class="d-inline">
+                    <input type="hidden" name="amount" value="<%= price %>">
+                    <button type="submit" class="btn btn-sm btn-warning">
+                      Pay £<%= price %>
+                    </button>
+                  </form>
+                <% } else { %>
+                  <span class="badge bg-success">Paid</span>
+                <% } %>
+              </td>
+            </tr>
+          <% }) %>
+        </tbody>
+      </table>
+    <% } else { %>
+      <p>No upcoming lessons.</p>
+    <% } %>
+
+    <!-- 3) Completed Lessons -->
+    <h2>Your Completed Lessons</h2>
+    <% if (completedLessons && completedLessons.length > 0) { %>
+      <ul class="list-group">
+        <% completedLessons.forEach(lesson => {
+           const alreadyReviewed = reviewedInstructorIds.has(lesson.Instructor.id);
+        %>
+          <li class="list-group-item">
+            <strong>Lesson with <%= lesson.Instructor.name %></strong>
+            <span class="text-muted"> on <%= lesson.date.toLocaleString() %></span><br>
+            <small class="text-muted">Notes: <%= lesson.notes || 'No notes provided.' %></small>
+
+            <% if (!alreadyReviewed) { %>
+              <form action="/student/reviews/create" method="POST" class="mt-2">
+                <input type="hidden" name="instructorId" value="<%= lesson.Instructor.id %>">
+                <div class="mb-2">
+                  <label for="rating" class="form-label">Rating (1-5):</label>
+                  <input 
+                    type="number" 
+                    name="rating" 
+                    min="1" 
+                    max="5" 
+                    required 
+                    class="form-control w-25 d-inline-block"
+                  >
+                </div>
+                <div class="mb-2">
+                  <label for="comment" class="form-label">Comment:</label>
+                  <input 
+                    type="text" 
+                    name="comment" 
+                    placeholder="Optional comment" 
+                    class="form-control"
+                  >
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm">Submit Review</button>
               </form>
             <% } else { %>
-              <span class="badge bg-success">Paid</span>
+              <p class="text-muted mt-2">You have already reviewed this instructor.</p>
             <% } %>
-          </td>
-        </tr>
-      <% }) %>
-    </tbody>
-  </table>
-<% } else { %>
-  <p>No upcoming lessons.</p>
-<% } %>
+          </li>
+        <% }) %>
+      </ul>
+    <% } else { %>
+      <p>No completed lessons yet.</p>
+    <% } %>
 
-<!-- 3) Completed Lessons -->
-<h2>Your Completed Lessons</h2>
-<% if (completedLessons && completedLessons.length > 0) { %>
-  <ul class="list-group">
-    <% completedLessons.forEach(lesson => {
-       const alreadyReviewed = reviewedInstructorIds.has(lesson.Instructor.id);
-    %>
-      <li class="list-group-item">
-        <strong>Lesson with <%= lesson.Instructor.name %></strong>
-        <span class="text-muted"> on <%= lesson.date.toLocaleString() %></span><br>
-        <small class="text-muted">Notes: <%= lesson.notes || 'No notes provided.' %></small>
+    <!-- 4) Message an Instructor -->
+    <h2 class="mt-4">Message an Instructor</h2>
+    <% if (instructorsForMessaging && instructorsForMessaging.length > 0) { %>
+      <ul class="list-group">
+        <% instructorsForMessaging.forEach(instr => { %>
+          <li class="list-group-item d-flex justify-content-between align-items-center">
+            <%= instr.name %> (#<%= instr.id %>)
+            <a href="/messages/<%= instr.id %>" class="btn btn-secondary btn-sm">
+              View Messages
+            </a>
+          </li>
+        <% }) %>
+      </ul>
+    <% } else { %>
+      <p>No instructors to message yet.</p>
+    <% } %>
 
-        <% if (!alreadyReviewed) { %>
-          <form action="/student/reviews/create" method="POST" class="mt-2">
-            <input type="hidden" name="instructorId" value="<%= lesson.Instructor.id %>">
-            <div class="mb-2">
-              <label for="rating" class="form-label">Rating (1-5):</label>
-              <input 
-                type="number" 
-                name="rating" 
-                min="1" 
-                max="5" 
-                required 
-                class="form-control w-25 d-inline-block"
-              >
-            </div>
-            <div class="mb-2">
-              <label for="comment" class="form-label">Comment:</label>
-              <input 
-                type="text" 
-                name="comment" 
-                placeholder="Optional comment" 
-                class="form-control"
-              >
-            </div>
-            <button type="submit" class="btn btn-primary btn-sm">Submit Review</button>
-          </form>
-        <% } else { %>
-          <p class="text-muted mt-2">You have already reviewed this instructor.</p>
-        <% } %>
-      </li>
-    <% }) %>
-  </ul>
-<% } else { %>
-  <p>No completed lessons yet.</p>
-<% } %>
+    <!-- 5) Conversations -->
+    <h2 class="mt-4">My Conversations</h2>
+    <p>
+      <a href="/student/conversations" class="btn btn-secondary">
+        View All Conversations
+      </a>
+    </p>
 
-<!-- 4) Achievements -->
-<h2 class="mt-4">Achievements</h2>
-<% if (achievements && achievements.length > 0) { %>
-  <ul class="list-group">
-    <% achievements.forEach(a => { %>
-      <li class="list-group-item">
-        <strong><%= a.name %></strong><br>
-        <span class="text-muted"><%= a.description %></span>
-      </li>
-    <% }) %>
-  </ul>
-<% } else { %>
-  <p>You haven't unlocked any achievements yet!</p>
-<% } %>
+    <!-- Reminder Preferences Section -->
+    <hr class="my-4">
+    <h2>Reminder Preferences</h2>
 
-<!-- 5) Message an Instructor -->
-<h2 class="mt-4">Message an Instructor</h2>
-<% if (instructorsForMessaging && instructorsForMessaging.length > 0) { %>
-  <ul class="list-group">
-    <% instructorsForMessaging.forEach(instr => { %>
-      <li class="list-group-item d-flex justify-content-between align-items-center">
-        <%= instr.name %> (#<%= instr.id %>)
-        <a href="/messages/<%= instr.id %>" class="btn btn-secondary btn-sm">
-          View Messages
-        </a>
-      </li>
-    <% }) %>
-  </ul>
-<% } else { %>
-  <p>No instructors to message yet.</p>
-<% } %>
+    <% if (student && !student.remindersOptOut) { %>
+      <p class="text-muted">
+        You will receive an automatic email reminder 
+        <%= student.reminderHours || 24 %> hour(s) before each upcoming lesson!
+      </p>
+    <% } else if (student) { %>
+      <p class="text-warning">
+        You have opted out of email reminders.
+      </p>
+    <% } %>
 
-<!-- 6) Conversations -->
-<h2 class="mt-4">My Conversations</h2>
-<p>
-  <a href="/student/conversations" class="btn btn-secondary">
-    View All Conversations
-  </a>
-</p>
+    <!-- Form to update reminder preferences -->
+    <form action="/student/profile" method="POST" class="mt-3">
+      <div class="form-check mb-3">
+        <input 
+          type="checkbox" 
+          class="form-check-input" 
+          id="remindersOptOut" 
+          name="remindersOptOut"
+          <%= student && student.remindersOptOut ? 'checked' : '' %>
+        >
+        <label for="remindersOptOut" class="form-check-label">
+          Opt Out of Email Reminders
+        </label>
+      </div>
+
+      <div class="mb-3">
+        <label for="reminderHours" class="form-label">Remind me (hours before lesson):</label>
+        <input 
+          type="number" 
+          name="reminderHours" 
+          id="reminderHours" 
+          class="form-control w-25"
+          value="<%= student && student.reminderHours ? student.reminderHours : 24 %>"
+        >
+      </div>
+
+      <div class="mb-3">
+        <label for="locale" class="form-label">Locale (for date/time):</label>
+        <input 
+          type="text" 
+          name="locale" 
+          id="locale" 
+          class="form-control w-50"
+          value="<%= student && student.locale ? student.locale : 'en-GB' %>"
+        >
+        <small class="text-muted">
+          E.g. "en-GB", "en-US", "fr-FR"
+        </small>
+      </div>
+
+      <button type="submit" class="btn btn-primary btn-sm">Save Preferences</button>
+    </form>
+
+  </div> <!-- end col-md-8 (left) -->
+
+  <!-- RIGHT SIDE (4 columns) - Achievements -->
+  <div class="col-md-4">
+    <%- include('partials/achievements', { achievements: achievements }) %>
+  </div> <!-- end col-md-4 (right) -->
+</div> <!-- end row -->

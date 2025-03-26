@@ -4,6 +4,32 @@
   Manage your profile, schedule lessons, and communicate with students.
 </p>
 
+<!-- FILE: views/instructor.ejs (somewhere near the top or side) -->
+<% 
+  let badges = [];
+  if (instructor.badges) {
+    try {
+      badges = JSON.parse(instructor.badges);
+    } catch (err) {
+      badges = [];
+    }
+  }
+%>
+
+<h2>Your Badges</h2>
+<% if (badges.length > 0) { %>
+  <ul class="list-group mb-3">
+    <% badges.forEach(badge => { %>
+      <li class="list-group-item">
+        <%= badge %>
+      </li>
+    <% }) %>
+  </ul>
+<% } else { %>
+  <p>No badges yet. Keep teaching and building your rating!</p>
+<% } %>
+
+
 <!-- Profile Section -->
 <h2>Your Profile</h2>
 <div class="card mb-4">

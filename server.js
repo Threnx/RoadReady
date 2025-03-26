@@ -6,7 +6,15 @@ const expressLayouts = require('express-ejs-layouts');
 const app = express();
 const sequelize = require('./db');
 
-// Existing Models
+const { Op, fn, col } = require('sequelize');
+const bcrypt = require('bcrypt');
+const session = require('express-session');
+const http = require('http');
+const { Server } = require('socket.io');
+const cron = require('node-cron');
+const nodemailer = require('nodemailer');
+
+// Models
 const User = require('./models/User');
 const Lesson = require('./models/Lesson');
 const Payment = require('./models/Payment');
@@ -16,14 +24,8 @@ const StudentReview = require('./models/StudentReview');
 const Notification = require('./models/Notification');
 const InstructorStudent = require('./models/InstructorStudent');
 const LessonPlan = require('./models/LessonPlan');
-
-// NEW: Import Competency and StudentCompetency
 const Competency = require('./models/Competency');
 const StudentCompetency = require('./models/StudentCompetency');
-
-const bcrypt = require('bcrypt');
-const session = require('express-session');
-const { Op, fn, col } = require('sequelize');
 
 /***************************************************
  * 1) SETUP VIEW ENGINE & EXPRESS-EJS-LAYOUTS
@@ -81,20 +83,34 @@ function requireAdmin(req, res, next) {
 /***************************************************
  * 4) MISC HELPERS
  ***************************************************/
-// Dummy email function
+// 1) Email transport - In production, configure properly
+const transporter = nodemailer.createTransport({
+  host: 'smtp.example.com',
+  port: 587,
+  auth: {
+    user: 'USERNAME',
+    pass: 'PASSWORD'
+  }
+});
+
+// 2) Send an email
 async function sendEmail(to, subject, text) {
-  console.log(`(Email disabled) Email to ${to}: ${subject}\n${text}`);
+  // In production, handle errors & HTML
+  const mailOptions = {
+    from: 'no-reply@yourdrivingapp.com',
+    to,
+    subject,
+    text
+  };
+  await transporter.sendMail(mailOptions);
+  console.log(`(Email sent) to: ${to}, subject: ${subject}`);
 }
 
 // Real-time notifications
 async function sendNotification(userId, message) {
-  // 1) Save to DB
   await Notification.create({ userId, message });
-
-  // 2) Emit via Socket.io (if available)
   const io = app.locals.io;
   if (io) {
-    // Broadcast to everyone (or refine to a specific user if you track rooms)
     io.emit('notification', { userId, message });
   }
 }
@@ -119,10 +135,7 @@ app.use((req, res, next) => {
   next();
 });
 
-/**
- * We'll store success/failure messages in req.session
- * and pass them to res.locals so they're displayed once and cleared.
- */
+// Success/Failure messages
 app.use((req, res, next) => {
   res.locals.successMessage = req.session.successMessage || null;
   res.locals.errorMessage = req.session.errorMessage || null;
@@ -167,7 +180,6 @@ app.post('/admin/block/:id', requireLogin, requireAdmin, async (req, res) => {
 
     u.active = false;
     await u.save();
-
     req.session.successMessage = `User "${u.name}" blocked successfully.`;
     res.redirect('/admin');
   } catch (error) {
@@ -184,7 +196,6 @@ app.post('/admin/unblock/:id', requireLogin, requireAdmin, async (req, res) => {
 
     u.active = true;
     await u.save();
-
     req.session.successMessage = `User "${u.name}" unblocked successfully.`;
     res.redirect('/admin');
   } catch (error) {
@@ -308,12 +319,9 @@ app.get('/instructors', requireLogin, async (req, res) => {
 app.post('/instructor/competencies/update', requireLogin, requireInstructor, async (req, res) => {
   try {
     const { studentId, competencyId, status } = req.body;
-    
-    // Check if the student is real, etc.
     const student = await User.findOne({ where: { id: studentId, role: 'student' } });
     if (!student) return res.status(404).send('Student not found');
 
-    // Upsert a record in StudentCompetency
     let record = await StudentCompetency.findOne({
       where: { studentId: student.id, competencyId }
     });
@@ -328,7 +336,7 @@ app.post('/instructor/competencies/update', requireLogin, requireInstructor, asy
       await record.save();
     }
 
-    res.redirect('/instructor'); // or some success message
+    res.redirect('/instructor');
   } catch (error) {
     console.error('Error updating competency:', error);
     res.status(500).send('Error updating competency.');
@@ -374,12 +382,10 @@ app.get('/instructor/roster', requireLogin, requireInstructor, async (req, res) 
 });
 
 app.post('/instructor/roster/:id/accept', requireLogin, requireInstructor, async (req, res) => {
-  // accept logic
   res.send('Accepted roster request (placeholder)');
 });
 
 app.post('/instructor/roster/:id/decline', requireLogin, requireInstructor, async (req, res) => {
-  // decline logic
   res.send('Declined roster request (placeholder)');
 });
 
@@ -443,6 +449,55 @@ app.get('/instructor', requireLogin, requireInstructor, async (req, res) => {
   } catch (error) {
     console.error('Error fetching instructor data:', error);
     res.status(500).send('Unable to fetch data.');
+  }
+});
+
+// Example: POST /instructor/lessons/:id/complete
+app.post('/instructor/lessons/:id/complete', requireLogin, requireInstructor, async (req, res) => {
+  const lessonId = parseInt(req.params.id, 10);
+  const instructorId = req.session.user.id;
+  const { notes } = req.body;
+
+  try {
+    const lesson = await Lesson.findOne({ 
+      where: { id: lessonId, instructorId, status: 'upcoming' }
+    });
+    if (!lesson) {
+      return res.status(404).send('Lesson not found, not upcoming, or does not belong to you.');
+    }
+
+    // Mark lesson as completed
+    lesson.status = 'completed';
+    lesson.notes = notes;
+    await lesson.save();
+
+    // Award XP to the student
+    const student = await User.findByPk(lesson.studentId);
+    if (student) {
+      // For example, +25 XP for each completed lesson
+      const oldXP = student.xp || 0;   // fallback if not defined
+      const oldLevel = student.level || 1;
+
+      const newXP = oldXP + 25;
+      student.xp = newXP;
+
+      // level = floor(xp/100) + 1
+      const newLevel = Math.floor(newXP / 100) + 1;
+      student.level = newLevel;
+
+      await student.save();
+
+      // If the student's level changed, you could send a notification
+      if (newLevel > oldLevel) {
+        console.log(`Student #${student.id} leveled up to Level ${newLevel}!`);
+        // or sendNotification(student.id, `Congrats! You've reached level ${newLevel}!`);
+      }
+    }
+
+    res.redirect('/instructor');
+  } catch (error) {
+    console.error('Error completing lesson:', error);
+    res.status(500).send('An error occurred. Please try again.');
   }
 });
 
@@ -591,10 +646,18 @@ app.post('/student/lessons/:id/reschedule', requireLogin, requireStudent, async 
   res.redirect('/student');
 });
 
-// STUDENT DASHBOARD
+// STUDENT DASHBOARD (WITH ACHIEVEMENTS)
 app.get('/student', requireLogin, requireStudent, async (req, res) => {
   try {
     const studentId = req.session.user.id;
+
+    // Fetch the student record from DB
+    const studentRecord = await User.findByPk(studentId);
+    if (!studentRecord) {
+      return res.status(404).send('Student not found.');
+    }
+
+    // 1) upcoming & completed
     const upcomingLessons = await Lesson.findAll({
       where: { studentId, status: 'upcoming' },
       include: [
@@ -607,23 +670,41 @@ app.get('/student', requireLogin, requireStudent, async (req, res) => {
       include: [{ model: User, as: 'Instructor' }]
     });
 
+    // 2) instructors for messaging
     const instructorIds = new Set();
     upcomingLessons.forEach(l => instructorIds.add(l.instructorId));
     completedLessons.forEach(l => instructorIds.add(l.instructorId));
-
     const instructorsForMessaging = await User.findAll({
       where: { id: Array.from(instructorIds) }
     });
 
+    // 3) reviews
     const writtenReviews = await Review.findAll({ where: { studentId } });
     const reviewedInstructorIds = new Set(writtenReviews.map(r => r.instructorId));
 
+    // 4) achievements
+    let achievements = [];
+    if (completedLessons.length >= 1) {
+      achievements.push({
+        name: 'First Lesson Completed',
+        description: 'You have completed your very first lesson! Great job!'
+      });
+    }
+    if (completedLessons.length >= 5) {
+      achievements.push({
+        name: '5 Lessons Completed',
+        description: 'You’ve completed 5 lessons and are on your way to success!'
+      });
+    }
+
     res.render('student', {
       title: 'Student Dashboard',
+      student: studentRecord,  // pass the full student object
       upcomingLessons,
       completedLessons,
       reviewedInstructorIds,
-      instructorsForMessaging
+      instructorsForMessaging,
+      achievements
     });
   } catch (error) {
     console.error('Error fetching student data:', error);
@@ -634,10 +715,9 @@ app.get('/student', requireLogin, requireStudent, async (req, res) => {
 // STUDENT PROGRESS
 app.get('/student/progress', requireLogin, requireStudent, async (req, res) => {
   const studentId = req.session.user.id;
-  // fetch student's competency records
   const records = await StudentCompetency.findAll({
     where: { studentId },
-    include: [{ model: Competency }] // so we get record.Competency.name
+    include: [{ model: Competency }]
   });
 
   const total = records.length;
@@ -655,7 +735,6 @@ app.get('/student/progress', requireLogin, requireStudent, async (req, res) => {
 app.get('/student/plans', requireLogin, requireStudent, async (req, res) => {
   try {
     const studentId = req.session.user.id;
-    // fetch lesson plans for this student
     const plans = await LessonPlan.findAll({
       where: { studentId },
       include: [{ model: User, as: 'Instructor' }]
@@ -901,17 +980,12 @@ app.get('/test-login/student', async (req, res) => {
 /***************************************************
  * 8) SYNC DB & START SERVER
  ***************************************************/
-const http = require('http');
-const { Server } = require('socket.io');
-
 sequelize.sync({ force: true })
   .then(async () => {
     console.log('Database synced!');
-    
-    // 1) Hash the password once
+
     const hashedPassword = await bcrypt.hash('password', 10);
 
-    // 2) Create Admin
     await User.create({
       name: 'Admin User',
       email: 'admin@example.com',
@@ -919,8 +993,6 @@ sequelize.sync({ force: true })
       role: 'admin',
       active: true
     });
-
-    // 3) Create Test Instructor
     await User.create({
       name: 'Test Instructor',
       email: 'test_instructor@example.com',
@@ -928,8 +1000,6 @@ sequelize.sync({ force: true })
       role: 'instructor',
       active: true
     });
-
-    // 4) Create Test Student
     await User.create({
       name: 'Test Student',
       email: 'test_student@example.com',
@@ -938,14 +1008,11 @@ sequelize.sync({ force: true })
       active: true
     });
 
-    // OPTIONAL: Seed some Competencies
-    // e.g. 'Parallel Parking', 'Roundabouts', 'Reversing'
+    // Seed some Competencies
     const parallelParking = await Competency.create({ name: 'Parallel Parking' });
     const roundabouts = await Competency.create({ name: 'Roundabouts' });
     const reversing = await Competency.create({ name: 'Reversing' });
-    // Now the instructor can assign them to a student with status in StudentCompetency
 
-    // 5) Then create the server & Socket.io
     const server = http.createServer(app);
     const io = new Server(server);
 
@@ -972,12 +1039,107 @@ sequelize.sync({ force: true })
 // Test route to send a quick notification
 app.get('/test-notification', async (req, res) => {
   try {
-    // Suppose we want to notify user #1
     const testUserId = 1;
     await sendNotification(testUserId, 'Hello from the test route!');
     res.send('Notification sent to user #1!');
   } catch (error) {
     console.error('Error in test notification route:', error);
     res.status(500).send('Error sending test notification.');
+  }
+});
+
+/***************************************************
+ * 9) REMINDER JOB: CRON + Nodemailer + Enhancements
+ ***************************************************/
+// 1) route for student to set reminder preferences
+app.get('/student/profile', requireLogin, requireStudent, async (req, res) => {
+  const student = await User.findByPk(req.session.user.id);
+  if (!student) return res.status(404).send('Student not found.');
+
+  res.render('student-profile', {
+    title: 'My Profile',
+    student
+  });
+});
+
+app.post('/student/profile', requireLogin, requireStudent, async (req, res) => {
+  const { reminderHours, remindersOptOut, locale } = req.body;
+  const student = await User.findByPk(req.session.user.id);
+  if (!student) return res.status(404).send('Student not found.');
+
+  const optOut = (remindersOptOut === 'on');
+  const hours = parseInt(reminderHours, 10) || 24;
+
+  student.reminderHours = hours;
+  student.remindersOptOut = optOut;
+  student.locale = locale || 'en-GB';
+
+  await student.save();
+  req.session.successMessage = 'Profile updated!';
+  res.redirect('/student/profile');
+});
+
+// 2) Cron job: run every hour => "0 * * * *"
+cron.schedule('0 * * * *', async () => {
+  console.log('Running hourly reminder job...');
+
+  try {
+    const now = new Date();
+
+    // Find all upcoming lessons with date>now
+    const allUpcoming = await Lesson.findAll({
+      where: {
+        status: 'upcoming',
+        date: { [Op.gt]: now }
+      },
+      include: [
+        { model: User, as: 'Student' },
+        { model: User, as: 'Instructor' }
+      ]
+    });
+
+    for (const lesson of allUpcoming) {
+      const student = lesson.Student;
+      const instructor = lesson.Instructor;
+      if (!student || !instructor) continue;
+
+      if (student.remindersOptOut) {
+        continue;
+      }
+
+      const reminderWindow = student.reminderHours || 24;
+      const lessonTime = lesson.date;
+      const diffMs = lessonTime - now;
+      const diffHours = diffMs / (1000 * 60 * 60);
+
+      if (diffHours > 0 && diffHours <= reminderWindow) {
+        const userLocale = student.locale || 'en-GB';
+        const dateFormatter = new Intl.DateTimeFormat(userLocale, {
+          dateStyle: 'medium',
+          timeStyle: 'short'
+        });
+        const localLessonTime = dateFormatter.format(lessonTime);
+
+        // Send reminder to student
+        const studentSubject = 'Lesson Reminder';
+        const studentText = `Hello ${student.name},
+This is a reminder that you have a lesson on ${localLessonTime} with Instructor #${lesson.instructorId}.
+Please be prepared and arrive on time.`;
+
+        await sendEmail(student.email, studentSubject, studentText);
+
+        // Also to instructor if needed
+        const instructorSubject = 'Upcoming Lesson Reminder';
+        const instructorText = `Hello ${instructor.name},
+You have an upcoming lesson on ${localLessonTime} with Student #${student.id}.
+Please be prepared.`;
+
+        await sendEmail(instructor.email, instructorSubject, instructorText);
+
+        console.log(`Reminder sent for lesson #${lesson.id}, student #${student.id}, instructor #${instructor.id}`);
+      }
+    }
+  } catch (error) {
+    console.error('Error in reminder job:', error);
   }
 });
