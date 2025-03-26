@@ -1,8 +1,8 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../db');
-const User = require('./user');
+const user = require('./user');
 
-const Lesson = sequelize.define('lesson', {
+const lesson = sequelize.define('lesson', {
   date: {
     type: DataTypes.DATE,
     allowNull: false
