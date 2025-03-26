@@ -6,7 +6,7 @@
   "author": "",
   "license": "ISC",
   "scripts": {
-    "start": "node server.js",      // <--- Added this
+    "start": "node server.js", 
     "dev": "nodemon server.js"
   },
   "dependencies": {
