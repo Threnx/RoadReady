@@ -1,10 +1,10 @@
-// FILE: models/StudentCompetency.js
+// FILE: models/studentcompetency.js
 const { DataTypes } = require('sequelize');
 const sequelize = require('../db');
 const User = require('./user');
-const Competency = require('./Competency');
+const Competency = require('./competency');
 
-const StudentCompetency = sequelize.define('StudentCompetency', {
+const studentcompetency = sequelize.define('studentsompetency', {
   status: {
     type: DataTypes.STRING, // e.g. 'not_started', 'in_progress', 'mastered'
     defaultValue: 'not_started'
@@ -12,7 +12,7 @@ const StudentCompetency = sequelize.define('StudentCompetency', {
 });
 
 // Associate
-StudentCompetency.belongsTo(User, { as: 'Student', foreignKey: 'studentId' });
-StudentCompetency.belongsTo(Competency, { foreignKey: 'competencyId' });
+studentcompetency.belongsTo(User, { as: 'Student', foreignKey: 'studentId' });
+studentcompetency.belongsTo(Competency, { foreignKey: 'competencyId' });
 
-module.exports = StudentCompetency;
+module.exports = studentcompetency;

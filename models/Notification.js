@@ -2,7 +2,7 @@ const { DataTypes } = require('sequelize');
 const sequelize = require('../db');
 const User = require('./user');
 
-const Notification = sequelize.define('Notification', {
+const Notification = sequelize.define('notification', {
   message: {
     type: DataTypes.STRING,
     allowNull: false

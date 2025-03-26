@@ -11,7 +11,7 @@ const User = require('./user');
  * - instructorId
  * - studentId
  */
-const LessonPlan = sequelize.define('LessonPlan', {
+const LessonPlan = sequelize.define('lessonplan', {
   title: {
     type: DataTypes.STRING,
     allowNull: false

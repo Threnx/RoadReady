@@ -2,7 +2,7 @@ const { DataTypes } = require('sequelize');
 const sequelize = require('../db');
 const User = require('./user');
 
-const Message = sequelize.define('Message', {
+const Message = sequelize.define('message', {
   content: {
     type: DataTypes.TEXT,
     allowNull: false
