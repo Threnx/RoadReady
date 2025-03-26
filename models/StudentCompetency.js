@@ -1,7 +1,7 @@
 // FILE: models/StudentCompetency.js
 const { DataTypes } = require('sequelize');
 const sequelize = require('../db');
-const User = require('./User');
+const User = require('./user');
 const Competency = require('./Competency');
 
 const StudentCompetency = sequelize.define('StudentCompetency', {

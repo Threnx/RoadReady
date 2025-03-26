@@ -1,7 +1,7 @@
 // models/LessonPlan.js
 const { DataTypes } = require('sequelize');
 const sequelize = require('../db');
-const User = require('./User');
+const User = require('./user');
 
 /**
  * A LessonPlan is created by an instructor for a student.

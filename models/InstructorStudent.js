@@ -1,7 +1,7 @@
 // models/InstructorStudent.js
 const { DataTypes } = require('sequelize');
 const sequelize = require('../db');
-const User = require('./User');
+const User = require('./user');
 
 /**
  * This model tracks the relationship (roster) between an instructor and a student.

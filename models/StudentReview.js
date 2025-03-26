@@ -1,7 +1,7 @@
 // models/StudentReview.js
 const { DataTypes } = require('sequelize');
 const sequelize = require('../db');
-const User = require('./User');
+const User = require('./user');
 
 const StudentReview = sequelize.define('StudentReview', {
   rating: {
