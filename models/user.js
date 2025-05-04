@@ -1,9 +1,8 @@
 // FILE: models/user.js
-
 const { DataTypes } = require('sequelize');
 const sequelize = require('../db');
 
-const user = sequelize.define('user', {
+const User = sequelize.define('user', {
   name: {
     type: DataTypes.STRING,
     allowNull: false
@@ -39,15 +38,14 @@ const user = sequelize.define('user', {
     defaultValue: false
   },
   availability: {
-    type: DataTypes.TEXT, 
+    type: DataTypes.TEXT,
     defaultValue: null
   },
   active: {
     type: DataTypes.BOOLEAN,
     defaultValue: true
   },
-
-  // Student XP/Level fields, if you have them
+  // Student XP/Level fields
   xp: {
     type: DataTypes.INTEGER,
     defaultValue: 0
@@ -56,13 +54,11 @@ const user = sequelize.define('user', {
     type: DataTypes.INTEGER,
     defaultValue: 1
   },
-
   // NEW: badges for instructors
   badges: {
     type: DataTypes.TEXT, // store as JSON string
     defaultValue: null
   }
-
 });
 
 module.exports = User;
