@@ -1,8 +1,7 @@
 const { DataTypes } = require('sequelize');
 const sequelize = require('../db');
-const user = require('./user');
 
-const lesson = sequelize.define('lesson', {
+const Lesson = sequelize.define('lesson', {
   date: {
     type: DataTypes.DATE,
     allowNull: false
@@ -20,11 +19,5 @@ const lesson = sequelize.define('lesson', {
     allowNull: true
   }
 });
-
-User.hasMany(Lesson, { as: 'InstructorLessons', foreignKey: 'instructorId' });
-Lesson.belongsTo(User, { as: 'Instructor', foreignKey: 'instructorId' });
-
-User.hasMany(Lesson, { as: 'StudentLessons', foreignKey: 'studentId' });
-Lesson.belongsTo(User, { as: 'Student', foreignKey: 'studentId' });
 
 module.exports = Lesson;

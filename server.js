@@ -14,18 +14,24 @@ const { Server } = require('socket.io');
 const cron = require('node-cron');
 const nodemailer = require('nodemailer');
 
-// Models (all-lowercase)
-const user = require('./models/user');
-const lesson = require('./models/lesson');
-const payment = require('./models/payment');
-const review = require('./models/review');
-const message = require('./models/message');
-const studentreview = require('./models/studentreview');
-const notification = require('./models/notification');
-const instructorstudent = require('./models/instructorstudent');
-const lessonplan = require('./models/lessonplan');
-const competency = require('./models/competency');
-const studentcompetency = require('./models/studentcompetency');
+// Models (all-lowercase files, capitalized variables)
+const User = require('./models/user');
+const Lesson = require('./models/lesson');
+const Payment = require('./models/payment');
+const Review = require('./models/review');
+const Message = require('./models/message');
+const StudentReview = require('./models/studentreview');
+const Notification = require('./models/notification');
+const InstructorStudent = require('./models/instructorstudent');
+const LessonPlan = require('./models/lessonplan');
+const Competency = require('./models/competency');
+const StudentCompetency = require('./models/studentcompetency');
+
+// Define associations
+User.hasMany(Lesson, { as: 'InstructorLessons', foreignKey: 'instructorId' });
+Lesson.belongsTo(User, { as: 'Instructor', foreignKey: 'instructorId' });
+User.hasMany(Lesson, { as: 'StudentLessons', foreignKey: 'studentId' });
+Lesson.belongsTo(User, { as: 'Student', foreignKey: 'studentId' });
 
 /***************************************************
  * 1) SETUP VIEW ENGINE & EXPRESS-EJS-LAYOUTS
@@ -107,7 +113,7 @@ async function sendEmail(to, subject, text) {
 
 // Real-time notifications
 async function sendNotification(userId, message) {
-  await notification.create({ userId, message });
+  await Notification.create({ userId, message });
   const io = app.locals.io;
   if (io) {
     io.emit('notification', { userId, message });
@@ -117,7 +123,7 @@ async function sendNotification(userId, message) {
 // Check if user is active
 async function loadUserActiveStatus(req, res, next) {
   if (req.session.user) {
-    const u = await user.findByPk(req.session.user.id);
+    const u = await User.findByPk(req.session.user.id);
     if (!u || !u.active) {
       req.session.destroy(err => {});
       return res.status(403).send('Your account is blocked.');
@@ -163,7 +169,7 @@ app.get('/admin', requireLogin, requireAdmin, async (req, res) => {
     ];
   }
 
-  const users = await user.findAll({
+  const users = await User.findAll({
     where: whereClause,
     order: [['name', 'ASC']]
   });
@@ -174,7 +180,7 @@ app.get('/admin', requireLogin, requireAdmin, async (req, res) => {
 app.post('/admin/block/:id', requireLogin, requireAdmin, async (req, res) => {
   try {
     const userId = parseInt(req.params.id, 10);
-    const u = await user.findByPk(userId);
+    const u = await User.findByPk(userId);
     if (!u) throw new Error('User not found');
 
     u.active = false;
@@ -190,7 +196,7 @@ app.post('/admin/block/:id', requireLogin, requireAdmin, async (req, res) => {
 app.post('/admin/unblock/:id', requireLogin, requireAdmin, async (req, res) => {
   try {
     const userId = parseInt(req.params.id, 10);
-    const u = await user.findByPk(userId);
+    const u = await User.findByPk(userId);
     if (!u) throw new Error('User not found');
 
     u.active = true;
@@ -207,7 +213,7 @@ app.post('/admin/unblock/:id', requireLogin, requireAdmin, async (req, res) => {
 app.post('/admin/delete/:id', requireLogin, requireAdmin, async (req, res) => {
   try {
     const userId = parseInt(req.params.id, 10);
-    const u = await user.findByPk(userId);
+    const u = await User.findByPk(userId);
     if (!u) throw new Error('User not found');
 
     await u.destroy();
@@ -221,7 +227,7 @@ app.post('/admin/delete/:id', requireLogin, requireAdmin, async (req, res) => {
 
 // NOTIFICATIONS
 app.get('/notifications', requireLogin, async (req, res) => {
-  const notifications = await notification.findAll({
+  const notifications = await Notification.findAll({
     where: { userId: req.session.user.id },
     order: [['createdAt', 'DESC']]
   });
@@ -230,7 +236,7 @@ app.get('/notifications', requireLogin, async (req, res) => {
 
 app.post('/notifications/mark-read', requireLogin, async (req, res) => {
   const { notificationId } = req.body;
-  const notif = await notification.findOne({ where: { id: notificationId, userId: req.session.user.id }});
+  const notif = await Notification.findOne({ where: { id: notificationId, userId: req.session.user.id }});
   if (!notif) return res.status(404).send('Notification not found');
   notif.read = true;
   await notif.save();
@@ -268,11 +274,11 @@ app.get('/instructors', requireLogin, async (req, res) => {
     const limit = parseInt(req.query.limit, 10) || 10;
     const offset = (page - 1) * limit;
 
-    const totalInstructors = await user.count({ where: whereClause });
-    const instructors = await user.findAll({
+    const totalInstructors = await User.count({ where: whereClause });
+    const instructors = await User.findAll({
       where: whereClause,
       order: [['name', 'ASC']],
-      include: [{ model: review, as: 'ReceivedReviews' }],
+      include: [{ model: Review, as: 'ReceivedReviews' }],
       limit,
       offset
     });
@@ -318,14 +324,14 @@ app.get('/instructors', requireLogin, async (req, res) => {
 app.post('/instructor/competencies/update', requireLogin, requireInstructor, async (req, res) => {
   try {
     const { studentId, competencyId, status } = req.body;
-    const studentUser = await user.findOne({ where: { id: studentId, role: 'student' } });
+    const studentUser = await User.findOne({ where: { id: studentId, role: 'student' } });
     if (!studentUser) return res.status(404).send('Student not found');
 
-    let record = await studentcompetency.findOne({
+    let record = await StudentCompetency.findOne({
       where: { studentId: studentUser.id, competencyId }
     });
     if (!record) {
-      record = await studentcompetency.create({
+      record = await StudentCompetency.create({
         studentId: studentUser.id,
         competencyId,
         status
@@ -345,7 +351,7 @@ app.post('/instructor/competencies/update', requireLogin, requireInstructor, asy
 // INSTRUCTOR AVAILABILITY
 app.get('/instructor/:id/availability', requireLogin, requireStudent, async (req, res) => {
   const instructorId = parseInt(req.params.id, 10);
-  const instructorUser = await user.findOne({ where: { id: instructorId, role: 'instructor' } });
+  const instructorUser = await User.findOne({ where: { id: instructorId, role: 'instructor' } });
   if (!instructorUser) return res.status(404).send('Instructor not found.');
 
   const availability = instructorUser.availability ? JSON.parse(instructorUser.availability) : {};
@@ -364,13 +370,13 @@ app.post('/instructor/:id/book', requireLogin, requireStudent, async (req, res) 
 // INSTRUCTOR ROSTER
 app.get('/instructor/roster', requireLogin, requireInstructor, async (req, res) => {
   const instructorId = req.session.user.id;
-  const pending = await instructorstudent.findAll({
+  const pending = await InstructorStudent.findAll({
     where: { instructorId, status: 'pending' },
-    include: [{ model: user, as: 'Student' }]
+    include: [{ model: User, as: 'Student' }]
   });
-  const accepted = await instructorstudent.findAll({
+  const accepted = await InstructorStudent.findAll({
     where: { instructorId, status: 'accepted' },
-    include: [{ model: user, as: 'Student' }]
+    include: [{ model: User, as: 'Student' }]
   });
 
   res.render('instructor-roster', {
@@ -397,22 +403,22 @@ app.get('/instructor/calendar', requireLogin, requireInstructor, (req, res) => {
 app.get('/instructor', requireLogin, requireInstructor, async (req, res) => {
   try {
     const instructorId = req.session.user.id;
-    const instructorUser = await user.findByPk(instructorId);
+    const instructorUser = await User.findByPk(instructorId);
 
-    const upcomingLessons = await lesson.findAll({
+    const upcomingLessons = await Lesson.findAll({
       where: { instructorId, status: 'upcoming' },
-      include: [{ model: user, as: 'Student' }]
+      include: [{ model: User, as: 'Student' }]
     });
-    const completedLessons = await lesson.findAll({
+    const completedLessons = await Lesson.findAll({
       where: { instructorId, status: 'completed' },
-      include: [{ model: user, as: 'Student' }]
+      include: [{ model: User, as: 'Student' }]
     });
 
     const studentIds = new Set();
     upcomingLessons.forEach(l => studentIds.add(l.studentId));
     completedLessons.forEach(l => studentIds.add(l.studentId));
 
-    const studentsForMessaging = await user.findAll({
+    const studentsForMessaging = await User.findAll({
       where: { id: Array.from(studentIds) }
     });
 
@@ -458,7 +464,7 @@ app.post('/instructor/lessons/:id/complete', requireLogin, requireInstructor, as
   const { notes } = req.body;
 
   try {
-    const lessonRow = await lesson.findOne({
+    const lessonRow = await Lesson.findOne({
       where: { id: lessonId, instructorId, status: 'upcoming' }
     });
     if (!lessonRow) {
@@ -471,7 +477,7 @@ app.post('/instructor/lessons/:id/complete', requireLogin, requireInstructor, as
     await lessonRow.save();
 
     // Award XP to the student
-    const studentUser = await user.findByPk(lessonRow.studentId);
+    const studentUser = await User.findByPk(lessonRow.studentId);
     if (studentUser) {
       const oldXP = studentUser.xp || 0;
       const oldLevel = studentUser.level || 1;
@@ -511,7 +517,7 @@ app.post('/instructor/profile/update', requireLogin, requireInstructor, async (r
   } = req.body;
 
   try {
-    const instructorUser = await user.findByPk(instructorId);
+    const instructorUser = await User.findByPk(instructorId);
     if (!instructorUser) return res.status(404).send('Instructor not found.');
 
     let finalCarType = [];
@@ -562,7 +568,7 @@ app.post('/student/lessons/:id/cancel', requireLogin, requireStudent, async (req
   const lessonId = parseInt(req.params.id, 10);
   const studentId = req.session.user.id;
 
-  const lessonRow = await lesson.findOne({ where: { id: lessonId, studentId, status: 'upcoming' } });
+  const lessonRow = await Lesson.findOne({ where: { id: lessonId, studentId, status: 'upcoming' } });
   if (!lessonRow) return res.status(404).send('Lesson not found or not upcoming.');
 
   const now = new Date();
@@ -582,10 +588,10 @@ app.post('/student/lessons/:id/reschedule', requireLogin, requireStudent, async 
   const studentId = req.session.user.id;
   const { timeslot, lessonDate } = req.body;
 
-  const lessonRow = await lesson.findOne({ where: { id: lessonId, studentId, status: 'upcoming' } });
+  const lessonRow = await Lesson.findOne({ where: { id: lessonId, studentId, status: 'upcoming' } });
   if (!lessonRow) return res.status(404).send('Lesson not found or not upcoming.');
 
-  const instructorUser = await user.findOne({ where: { id: lessonRow.instructorId, role: 'instructor' } });
+  const instructorUser = await User.findOne({ where: { id: lessonRow.instructorId, role: 'instructor' } });
   if (!instructorUser || instructorUser.onHoliday) {
     return res.status(403).send('Instructor not available or on holiday.');
   }
@@ -620,7 +626,7 @@ app.post('/student/lessons/:id/reschedule', requireLogin, requireStudent, async 
   const lessonEnd = new Date(chosenDate);
   lessonEnd.setHours(endHour, endMin, 0, 0);
 
-  const conflict = await lesson.findOne({
+  const conflict = await Lesson.findOne({
     where: {
       instructorId: instructorUser.id,
       status: 'upcoming',
@@ -649,34 +655,34 @@ app.get('/student', requireLogin, requireStudent, async (req, res) => {
     const studentId = req.session.user.id;
 
     // Fetch the student record from DB
-    const studentRecord = await user.findByPk(studentId);
+    const studentRecord = await User.findByPk(studentId);
     if (!studentRecord) {
       return res.status(404).send('Student not found.');
     }
 
     // 1) upcoming & completed
-    const upcomingLessons = await lesson.findAll({
+    const upcomingLessons = await Lesson.findAll({
       where: { studentId, status: 'upcoming' },
       include: [
-        { model: user, as: 'Instructor' },
-        { model: payment, as: 'Payments' }
+        { model: User, as: 'Instructor' },
+        { model: Payment, as: 'Payments' }
       ]
     });
-    const completedLessons = await lesson.findAll({
+    const completedLessons = await Lesson.findAll({
       where: { studentId, status: 'completed' },
-      include: [{ model: user, as: 'Instructor' }]
+      include: [{ model: User, as: 'Instructor' }]
     });
 
     // 2) instructors for messaging
     const instructorIds = new Set();
     upcomingLessons.forEach(l => instructorIds.add(l.instructorId));
     completedLessons.forEach(l => instructorIds.add(l.instructorId));
-    const instructorsForMessaging = await user.findAll({
+    const instructorsForMessaging = await User.findAll({
       where: { id: Array.from(instructorIds) }
     });
 
     // 3) reviews
-    const writtenReviews = await review.findAll({ where: { studentId } });
+    const writtenReviews = await Review.findAll({ where: { studentId } });
     const reviewedInstructorIds = new Set(writtenReviews.map(r => r.instructorId));
 
     // 4) achievements
@@ -712,9 +718,9 @@ app.get('/student', requireLogin, requireStudent, async (req, res) => {
 // STUDENT PROGRESS
 app.get('/student/progress', requireLogin, requireStudent, async (req, res) => {
   const studentId = req.session.user.id;
-  const records = await studentcompetency.findAll({
+  const records = await StudentCompetency.findAll({
     where: { studentId },
-    include: [{ model: competency }]
+    include: [{ model: Competency }]
   });
 
   const total = records.length;
@@ -732,9 +738,9 @@ app.get('/student/progress', requireLogin, requireStudent, async (req, res) => {
 app.get('/student/plans', requireLogin, requireStudent, async (req, res) => {
   try {
     const studentId = req.session.user.id;
-    const plans = await lessonplan.findAll({
+    const plans = await LessonPlan.findAll({
       where: { studentId },
-      include: [{ model: user, as: 'Instructor' }]
+      include: [{ model: User, as: 'Instructor' }]
     });
 
     res.render('student-plans', {
@@ -752,7 +758,7 @@ app.get('/student/conversations/:instructorId', requireLogin, requireStudent, as
   const studentId = req.session.user.id;
   const instructorId = parseInt(req.params.instructorId, 10);
 
-  const messagesFound = await message.findAll({
+  const messagesFound = await Message.findAll({
     where: {
       [Op.or]: [
         { senderId: studentId, recipientId: instructorId },
@@ -761,8 +767,8 @@ app.get('/student/conversations/:instructorId', requireLogin, requireStudent, as
     },
     order: [['createdAt','ASC']],
     include: [
-      { model: user, as: 'Sender', attributes: ['id','name','role'] },
-      { model: user, as: 'Recipient', attributes: ['id','name','role'] }
+      { model: User, as: 'Sender', attributes: ['id','name','role'] },
+      { model: User, as: 'Recipient', attributes: ['id','name','role'] }
     ]
   });
 
@@ -779,13 +785,13 @@ app.get('/student/conversations/:instructorId', requireLogin, requireStudent, as
 app.get('/student/conversations', requireLogin, requireStudent, async (req, res) => {
   const studentId = req.session.user.id;
 
-  const sent = await message.findAll({
+  const sent = await Message.findAll({
     where: { senderId: studentId },
-    include: [{ model: user, as: 'Recipient', attributes: ['id','name','role'] }]
+    include: [{ model: User, as: 'Recipient', attributes: ['id','name','role'] }]
   });
-  const received = await message.findAll({
+  const received = await Message.findAll({
     where: { recipientId: studentId },
-    include: [{ model: user, as: 'Sender', attributes: ['id','name','role'] }]
+    include: [{ model: User, as: 'Sender', attributes: ['id','name','role'] }]
   });
 
   const instructorsSet = new Map();
@@ -812,15 +818,15 @@ app.post('/student/request-instructor/:id', requireLogin, requireStudent, async 
   const studentId = req.session.user.id;
   const { message: requestMsg } = req.body;
 
-  const instructorUser = await user.findOne({ where: { id: instructorId, role: 'instructor', active:true } });
+  const instructorUser = await User.findOne({ where: { id: instructorId, role: 'instructor', active: true } });
   if (!instructorUser) return res.status(404).send('Instructor not found or inactive.');
 
-  const existing = await instructorstudent.findOne({ where: { instructorId, studentId } });
+  const existing = await InstructorStudent.findOne({ where: { instructorId, studentId } });
   if (existing) {
     return res.status(400).send(`You already have a relationship with this instructor: ${existing.status}`);
   }
 
-  await instructorstudent.create({
+  await InstructorStudent.create({
     instructorId,
     studentId,
     status: 'pending',
@@ -834,7 +840,7 @@ app.post('/student/request-instructor/:id', requireLogin, requireStudent, async 
 // Student lessons as JSON for FullCalendar
 app.get('/api/student/lessons', requireLogin, requireStudent, async (req, res) => {
   const studentId = req.session.user.id;
-  const lessonsFound = await lesson.findAll({
+  const lessonsFound = await Lesson.findAll({
     where: { studentId }
   });
 
@@ -863,7 +869,7 @@ app.get('/login', (req, res) => {
 app.post('/login', async (req, res) => {
   const { email, password } = req.body;
   try {
-    const foundUser = await user.findOne({ where: { email } });
+    const foundUser = await User.findOne({ where: { email } });
     if (!foundUser || !foundUser.active) {
       return res.status(401).send('Invalid credentials or account blocked. <a href="/login">Try again</a>');
     }
@@ -902,7 +908,7 @@ app.post('/register', async (req, res) => {
   const { name, email, password, role } = req.body;
   try {
     const hashedPassword = await bcrypt.hash(password, 10);
-    await user.create({ name, email, password: hashedPassword, role: role || 'student' });
+    await User.create({ name, email, password: hashedPassword, role: role || 'student' });
     res.redirect('/');
   } catch (error) {
     console.error('Error creating user:', error);
@@ -922,7 +928,7 @@ app.get('/logout', (req, res) => {
  ***************************************************/
 app.get('/test-login/admin', async (req, res) => {
   try {
-    const adminUser = await user.findOne({ where: { email: 'admin@example.com', role: 'admin' } });
+    const adminUser = await User.findOne({ where: { email: 'admin@example.com', role: 'admin' } });
     if (!adminUser || !adminUser.active) {
       return res.status(500).send('Test admin not found or blocked.');
     }
@@ -940,7 +946,7 @@ app.get('/test-login/admin', async (req, res) => {
 
 app.get('/test-login/instructor', async (req, res) => {
   try {
-    const testInstructor = await user.findOne({ where: { email: 'test_instructor@example.com', role: 'instructor' } });
+    const testInstructor = await User.findOne({ where: { email: 'test_instructor@example.com', role: 'instructor' } });
     if (!testInstructor || !testInstructor.active) {
       return res.status(500).send('Test instructor not found or blocked.');
     }
@@ -958,7 +964,7 @@ app.get('/test-login/instructor', async (req, res) => {
 
 app.get('/test-login/student', async (req, res) => {
   try {
-    const testStudent = await user.findOne({ where: { email: 'test_student@example.com', role: 'student' } });
+    const testStudent = await User.findOne({ where: { email: 'test_student@example.com', role: 'student' } });
     if (!testStudent || !testStudent.active) {
       return res.status(500).send('Test student not found or blocked.');
     }
@@ -983,21 +989,21 @@ sequelize.sync({ force: true })
 
     const hashedPassword = await bcrypt.hash('password', 10);
 
-    await user.create({
+    await User.create({
       name: 'Admin User',
       email: 'admin@example.com',
       password: hashedPassword,
       role: 'admin',
       active: true
     });
-    await user.create({
+    await User.create({
       name: 'Test Instructor',
       email: 'test_instructor@example.com',
       password: hashedPassword,
       role: 'instructor',
       active: true
     });
-    await user.create({
+    await User.create({
       name: 'Test Student',
       email: 'test_student@example.com',
       password: hashedPassword,
@@ -1006,9 +1012,9 @@ sequelize.sync({ force: true })
     });
 
     // Seed some Competencies
-    await competency.create({ name: 'Parallel Parking' });
-    await competency.create({ name: 'Roundabouts' });
-    await competency.create({ name: 'Reversing' });
+    await Competency.create({ name: 'Parallel Parking' });
+    await Competency.create({ name: 'Roundabouts' });
+    await Competency.create({ name: 'Reversing' });
 
     const server = http.createServer(app);
     const io = new Server(server);
@@ -1050,7 +1056,7 @@ app.get('/test-notification', async (req, res) => {
  ***************************************************/
 // 1) route for student to set reminder preferences
 app.get('/student/profile', requireLogin, requireStudent, async (req, res) => {
-  const studentRow = await user.findByPk(req.session.user.id);
+  const studentRow = await User.findByPk(req.session.user.id);
   if (!studentRow) return res.status(404).send('Student not found.');
 
   res.render('student-profile', {
@@ -1061,7 +1067,7 @@ app.get('/student/profile', requireLogin, requireStudent, async (req, res) => {
 
 app.post('/student/profile', requireLogin, requireStudent, async (req, res) => {
   const { reminderHours, remindersOptOut, locale } = req.body;
-  const studentRow = await user.findByPk(req.session.user.id);
+  const studentRow = await User.findByPk(req.session.user.id);
   if (!studentRow) return res.status(404).send('Student not found.');
 
   const optOut = (remindersOptOut === 'on');
@@ -1084,14 +1090,14 @@ cron.schedule('0 * * * *', async () => {
     const now = new Date();
 
     // Find all upcoming lessons with date>now
-    const allUpcoming = await lesson.findAll({
+    const allUpcoming = await Lesson.findAll({
       where: {
         status: 'upcoming',
         date: { [Op.gt]: now }
       },
       include: [
-        { model: user, as: 'Student' },
-        { model: user, as: 'Instructor' }
+        { model: User, as: 'Student' },
+        { model: User, as: 'Instructor' }
       ]
     });
 
