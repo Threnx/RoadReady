@@ -31,8 +31,5 @@
   "keywords": [],
   "repository": {},
   "bugs": {},
-  "homepage": "",
-  "nixpacks": {
-    "cacheKey": "2025-05-05" // Add this to force cache bust
-  }
+  "homepage": ""
 }
