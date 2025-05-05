@@ -1019,8 +1019,9 @@ sequelize.sync({ force: true })
     const server = http.createServer(app);
     const io = new Server(server);
 
-    server.listen(3000, () => {
-      console.log('Server running on http://localhost:3000');
+    const PORT = process.env.PORT || 3000;
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on port ${PORT}`);
       console.log('Admin: admin@example.com / password');
       console.log('Test Instructor: test_instructor@example.com / password');
       console.log('Test Student: test_student@example.com / password');
