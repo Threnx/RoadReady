@@ -4,7 +4,6 @@
   Manage your profile, schedule lessons, and communicate with students.
 </p>
 
-<!-- FILE: views/instructor.ejs (somewhere near the top or side) -->
 <% 
   let badges = [];
   if (instructor.badges) {
@@ -29,7 +28,6 @@
   <p>No badges yet. Keep teaching and building your rating!</p>
 <% } %>
 
-
 <!-- Profile Section -->
 <h2>Your Profile</h2>
 <div class="card mb-4">
@@ -53,6 +51,9 @@
 
       <!-- On Holiday? -->
       <strong>On Holiday:</strong> <%= instructor.onHoliday ? 'Yes' : 'No' %><br>
+
+      <!-- Postcode display -->
+      <strong>Postcode:</strong> <%= instructor.postcode || 'Not set' %><br>
     </p>
 
     <!-- Availability display -->
@@ -122,6 +123,18 @@
           id="costStudentCar" 
           name="costStudentCar" 
           value="<%= instructor.costStudentCar || '' %>"
+        >
+      </div>
+
+      <!-- New postcode field -->
+      <div class="col-md-4">
+        <label for="postcode" class="form-label">Postcode:</label>
+        <input
+          type="text"
+          class="form-control"
+          id="postcode"
+          name="postcode"
+          value="<%= instructor.postcode || '' %>"
         >
       </div>
 
