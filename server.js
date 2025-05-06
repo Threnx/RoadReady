@@ -1,6 +1,8 @@
 /***************************************************
  * FILE: server.js
  ***************************************************/
+const NodeGeocoder = require('node-geocoder');
+const geoCoder = NodeGeocoder({ provider: 'openstreetmap' });
 const express = require('express');
 const expressLayouts = require('express-ejs-layouts');
 const app = express();
@@ -359,6 +361,43 @@ app.get('/instructor/:id/availability', requireLogin, requireStudent, async (req
     title: 'Instructor Availability',
     instructor: instructorUser,
     availability
+  });
+  app.post('/instructor/profile/update', requireLogin, requireInstructor, async (req, res) => {
+    const instructorId = req.session.user.id;
+    const {
+      'carType[]': carTypeArray,
+      costManual,
+      costAutomatic,
+      costStudentCar,
+      postcode,           
+      onHoliday,
+      availability
+    } = req.body;
+  
+    try {
+      const instructor = await User.findByPk(instructorId);
+      if (!instructor) return res.status(404).send('Instructor not found.');
+  
+      // normalize carType array
+      let finalCarType = [];
+      if (Array.isArray(carTypeArray)) finalCarType = carTypeArray;
+      else if (typeof carTypeArray === 'string') finalCarType = [carTypeArray];
+  
+      // parse costs
+      instructor.carType         = finalCarType;
+      instructor.lessonPrice     = costManual ? parseFloat(costManual) : instructor.lessonPrice;
+      instructor.costAutomatic   = costAutomatic ? parseFloat(costAutomatic) : instructor.costAutomatic;
+      instructor.costStudentCar  = costStudentCar  ? parseFloat(costStudentCar)  : instructor.costStudentCar;
+      instructor.postcode        = postcode;     // ← save it
+      instructor.onHoliday       = (onHoliday === 'on');
+      instructor.availability    = JSON.stringify(availability || {});
+  
+      await instructor.save();
+      res.redirect('/instructor');
+    } catch (err) {
+      console.error('Error updating instructor profile:', err);
+      res.status(500).send('Could not update profile.');
+    }
   });
 });
 
